@@ -1,0 +1,308 @@
+/* TripStar Dark Luxury Theme — Design Tokens */
+:root {
+  /* === Typography === */
+  --font-family-base: 'Montserrat', 'Helvetica', Arial, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-weight-light: 300;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  /* === Brand Colors === */
+  --color-primary: #f5593d;
+  --color-primary-hover: #f33816;
+  --color-primary-light: #f7765f;
+  --color-primary-soft: rgba(245, 89, 61, 0.12);
+  --color-teal: #51cbce;
+  --color-teal-hover: #34b5b8;
+  --color-info: #51bcda;
+  --color-success: #6bd098;
+  --color-warning: #fbc658;
+  --color-danger: #f5593d;
+
+  /* === Background Colors === */
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #f5f6fa;
+  --color-bg-dark: #1a1530;
+  --color-bg-darker: #0b0b1a;
+  --color-bg-card: #ffffff;
+  --color-bg-glass: rgba(255, 255, 255, 0.15);
+  --color-bg-overlay: rgba(0, 0, 0, 0.5);
+
+  /* === Text Colors === */
+  --color-text-primary: #333333;
+  --color-text-secondary: #66615b;
+  --color-text-tertiary: #9a9a9a;
+  --color-text-muted: #dddddd;
+  --color-text-white: #ffffff;
+  --color-text-white-muted: rgba(255, 255, 255, 0.7);
+
+  /* === Border === */
+  --color-border: #dddddd;
+  --color-border-light: #f1eae0;
+  --border-radius-sm: 4px;
+  --border-radius-md: 8px;
+  --border-radius-lg: 12px;
+  --border-radius-xl: 20px;
+  --border-radius-round: 30px;
+
+  /* === Shadows === */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 6px 10px -4px rgba(0, 0, 0, 0.15);
+  --shadow-lg: 0 12px 19px -7px rgba(0, 0, 0, 0.3);
+  --shadow-xl: 0 16px 38px -12px rgba(0, 0, 0, 0.56), 0 4px 25px 0 rgba(0, 0, 0, 0.12), 0 8px 10px -5px rgba(0, 0, 0, 0.2);
+  --shadow-card-hover: 0px 12px 19px -7px rgba(0, 0, 0, 0.3);
+
+  /* === Spacing === */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-2xl: 48px;
+  --spacing-3xl: 64px;
+
+  /* === Transitions === */
+  --transition-fast: all 150ms linear;
+  --transition-normal: all 300ms linear;
+  --transition-slow: all 500ms ease;
+
+  /* === Z-index === */
+  --z-dropdown: 1000;
+  --z-sticky: 1020;
+  --z-fixed: 1030;
+  --z-modal: 1040;
+  --z-popover: 1050;
+  --z-tooltip: 1060;
+
+  /* === Backward-compatible aliases (from old design system) === */
+  --font-family: var(--font-family-base);
+  --header-height: 64px;
+  --content-max-width: 1100px;
+
+  /* Spacing aliases */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-16: 64px;
+
+  /* Font size aliases */
+  --font-size-xs: 10px;
+  --font-size-sm: 12px;
+  --font-size-md: 14px;
+  --font-size-base: 16px;
+  --font-size-lg: 18px;
+  --font-size-xl: 20px;
+  --font-size-2xl: 24px;
+  --font-size-4xl: 32px;
+
+  /* Radius aliases */
+  --radius-xs: 3px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-pill: 24px;
+  --radius-circle: 50%;
+
+  /* Color aliases for old component references */
+  --color-gradient: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));
+  --color-bg-elevated: var(--color-bg-card);
+  --color-bg-tertiary: rgba(0, 0, 0, 0.03);
+  --color-glass-bg: rgba(255, 255, 255, 0.8);
+  --color-glass-border: rgba(0, 0, 0, 0.08);
+  --color-text-inverse: #fff;
+  --color-primary-bg: var(--color-primary-soft);
+  --color-warning-bg: rgba(251, 198, 88, 0.15);
+  --color-error-bg: rgba(245, 89, 61, 0.1);
+  --color-bg-hero: linear-gradient(135deg, #1a0a2e, #16213e, #0f3460);
+  --shadow-card: var(--shadow-md);
+  --shadow-card-hover: 0px 12px 19px -7px rgba(0, 0, 0, 0.3);
+  --shadow-button: 0 4px 12px rgba(245, 89, 61, 0.3);
+  --shadow-button-hover: 0 8px 25px rgba(245, 89, 61, 0.4);
+  --blur-glass: 16px;
+  --line-height-relaxed: 1.7;
+
+  /* Font weight aliases */
+  --font-weight-bold: 700;
+  --font-weight-semibold: 600;
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+
+  /* Dark mode overrides for compat aliases */
+  --color-border-light: rgba(0, 0, 0, 0.06);
+}
+[data-theme="dark"] {
+  --color-bg-elevated: var(--color-bg-card);
+  --color-bg-tertiary: rgba(255, 255, 255, 0.04);
+  --color-glass-bg: rgba(30, 24, 64, 0.8);
+  --color-glass-border: rgba(255, 255, 255, 0.08);
+  --color-border-light: rgba(255, 255, 255, 0.06);
+  --shadow-card: var(--shadow-md);
+}
+
+/* === Global Reset & Base === */
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  font-weight: var(--font-weight-light);
+  font-family: var(--font-family-base);
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-font-smoothing: antialiased;
+  background: var(--color-bg-secondary);
+  line-height: 1.5;
+  overflow-x: hidden;
+}
+
+a {
+  color: var(--color-info);
+  text-decoration: none;
+  transition: var(--transition-fast);
+}
+a:hover, a:focus { color: #2ba9cd; }
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-family-base);
+  font-weight: var(--font-weight-light);
+  color: var(--color-text-primary);
+  margin: 30px 0 0;
+}
+h1 { font-size: 3.6em; }
+h2 { font-size: 2.8em; }
+h3 { font-size: 1.825em; line-height: 1.4; margin: 20px 0 0; }
+h4 { font-size: 1.6em; line-height: 1.2; }
+h5 { font-size: 1.35em; line-height: 1.4; }
+h6 { font-size: 0.9em; font-weight: 600; text-transform: uppercase; }
+
+p { font-size: 15px; line-height: 1.5; margin-bottom: 5px; }
+
+img { max-width: 100%; height: auto; }
+
+/* === Utility Classes === */
+.text-primary { color: var(--color-primary) !important; }
+.text-success { color: var(--color-success) !important; }
+.text-warning { color: var(--color-warning) !important; }
+.text-danger { color: var(--color-danger) !important; }
+.text-info { color: var(--color-info) !important; }
+.text-muted { color: var(--color-text-muted) !important; }
+.text-white { color: var(--color-text-white) !important; }
+.text-center { text-align: center !important; }
+
+/* === Card Base === */
+.card {
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-md);
+  background-color: var(--color-bg-card);
+  color: var(--color-text-primary);
+  margin-bottom: 20px;
+  position: relative;
+  border: 0 none;
+  transition: transform 300ms cubic-bezier(0.34, 2, 0.6, 1), box-shadow 200ms ease;
+}
+.card:not(.no-hover):hover {
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-10px);
+}
+.card-plain {
+  background-color: transparent;
+  box-shadow: none;
+  border-radius: 0;
+}
+
+/* === Button Base === */
+.btn {
+  box-sizing: border-box;
+  border-width: 2px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 0.5rem 18px;
+  line-height: 1.75;
+  cursor: pointer;
+  text-transform: uppercase;
+  border-radius: var(--border-radius-round);
+  transition: var(--transition-normal);
+}
+.btn-primary {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+.btn-primary:hover { background-color: var(--color-primary-hover); border-color: var(--color-primary-hover); }
+.btn-round { border-radius: 30px; }
+.btn-lg { font-size: 14px; padding: 11px 30px; }
+.btn-sm { font-size: 12px; padding: 4px 10px; }
+.btn:disabled, .btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+
+/* === Form Controls === */
+.form-control {
+  background-color: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-sm);
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  padding: 7px 12px;
+  height: 40px;
+  box-shadow: none;
+  transition: var(--transition-normal);
+}
+.form-control:focus {
+  border-color: #9a9a9a;
+  box-shadow: none;
+  outline: 0 !important;
+}
+.form-control::placeholder { color: #d2d2d2; }
+
+/* === Section === */
+.section {
+  padding: 70px 0;
+  position: relative;
+}
+.section-dark {
+  background-color: #0b1011;
+  color: #fff;
+}
+.section-dark .title, .section-dark h1, .section-dark h2, .section-dark h3 { color: #fff !important; }
+.section-dark .description { color: rgba(255, 255, 255, 0.7); }
+
+/* === Animations === */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+.animate-fade-in-up { animation: fadeInUp 0.6s ease forwards; }
+.animate-fade-in { animation: fadeIn 0.5s ease forwards; }
+
+/* === Scrollbar === */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #999; }
+
+/* === Responsive === */
+@media (max-width: 768px) {
+  h1 { font-size: 2.2em; }
+  h2 { font-size: 1.8em; }
+  h3 { font-size: 1.4em; }
+  .section { padding: 40px 0; }
+}

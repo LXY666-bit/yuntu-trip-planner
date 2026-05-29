@@ -1,0 +1,38 @@
+# 环境变量（含 API Key 等敏感信息，任何层级都排除）
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+*.egg
+
+# Node
+node_modules/
+dist/
+dist-ssr/
+
+# IDE
+.vscode/
+.idea/
+
+# 数据库
+*.db
+*.sqlite3
+
+# 日志
+*.log
+
+# 测试
+.pytest_cache/
+.coverage
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 项目文档（Word 文档体积大，如需上传请删除此行）
+*.docx
