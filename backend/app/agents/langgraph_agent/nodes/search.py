@@ -34,6 +34,80 @@ try:
 except ImportError as e:
     print(f"⚠️ 小红书服务导入失败: {e}")
 
+# 城市名中文→英文映射
+_CITY_EN_MAP: dict[str, str] = {
+    "北京": "Beijing", "上海": "Shanghai", "广州": "Guangzhou",
+    "深圳": "Shenzhen", "杭州": "Hangzhou", "成都": "Chengdu",
+    "重庆": "Chongqing", "西安": "Xi'an", "南京": "Nanjing",
+    "武汉": "Wuhan", "厦门": "Xiamen", "苏州": "Suzhou",
+    "三亚": "Sanya", "丽江": "Lijiang", "大理": "Dali",
+    "拉萨": "Lhasa", "哈尔滨": "Harbin", "昆明": "Kunming",
+    "青岛": "Qingdao", "桂林": "Guilin", "张家界": "Zhangjiajie",
+    "长沙": "Changsha", "郑州": "Zhengzhou", "天津": "Tianjin",
+    "济南": "Jinan", "合肥": "Hefei", "南昌": "Nanchang",
+    "贵阳": "Guiyang", "南宁": "Nanning", "沈阳": "Shenyang",
+    "大连": "Dalian", "福州": "Fuzhou", "珠海": "Zhuhai",
+}
+
+# 中文短语→英文翻译（长→短排序，确保长短语优先匹配）
+_CN_TO_EN_PHRASES: list[tuple[str, str]] = [
+    ("必去景点 top10", "top attractions"),
+    ("旅游攻略 必去", "must visit travel guide"),
+    ("最值得去的景点", "best places to visit"),
+    ("旅游景点推荐", "tourist attractions"),
+    ("十大景点", "top 10 attractions"),
+    ("冷门景点 小众", "hidden gems"),
+    ("周边景点推荐", "nearby attractions"),
+    ("低价景点推荐", "budget attractions"),
+    ("免费景点", "free attractions"),
+    ("必去景点", "must-see attractions"),
+    ("景点推荐", "attraction recommendations"),
+    ("旅游攻略", "travel guide"),
+    ("一个人", "solo"),
+    ("情侣", "couple"),
+    ("亲子", "family"),
+    ("朋友", "friends"),
+    ("老人", "elderly"),
+    ("团队", "group"),
+]
+
+# 偏好关键词中文→英文映射
+_PREF_EN_MAP: dict[str, str] = {
+    "自然风光": "nature scenery",
+    "历史文化": "history culture",
+    "美食": "food cuisine",
+    "购物": "shopping",
+    "休闲": "leisure",
+    "娱乐": "entertainment",
+    "户外": "outdoor adventure",
+    "浪漫": "romantic",
+    "摄影": "photography",
+    "建筑": "architecture",
+    "博物馆": "museums",
+    "公园": "parks",
+    "海滩": "beach",
+    "温泉": "hot springs",
+    "古镇": "ancient town",
+    "夜景": "night view",
+    "文艺": "artsy",
+    "小众": "hidden gems",
+    "网红": "instagram worthy",
+}
+
+
+def _query_to_en(query: str) -> str:
+    """将中文搜索查询翻译为英文（替换所有可识别部分）"""
+    result = query
+    for cn, en in _CITY_EN_MAP.items():
+        if cn in result:
+            result = result.replace(cn, en)
+            break
+    for cn_phrase, en_phrase in _CN_TO_EN_PHRASES:
+        result = result.replace(cn_phrase, en_phrase)
+    for cn_pref, en_pref in _PREF_EN_MAP.items():
+        result = result.replace(cn_pref, en_pref)
+    return result
+
 
 class FreeTextAnalysis(BaseModel):
     attractions: List[str] = Field(default_factory=list, description="用户指定的景点名称")
@@ -80,21 +154,8 @@ async def analyze_free_text(free_text: str) -> Dict[str, List[str]]:
         response = await _invoke_llm_with_retry(llm, messages, max_retries=1, per_attempt_timeout=15.0)
         content = response.content.strip()
 
-        if "```json" in content:
-            json_start = content.find("```json") + 7
-            json_end = content.find("```", json_start)
-            json_str = content[json_start:json_end].strip()
-        elif "```" in content:
-            json_start = content.find("```") + 3
-            json_end = content.find("```", json_start)
-            json_str = content[json_start:json_end].strip()
-        elif "{" in content:
-            json_start = content.find("{")
-            json_end = content.rfind("}") + 1
-            json_str = content[json_start:json_end]
-        else:
-            raise ValueError("响应中未找到JSON")
-
+        from ..utils.parsing import _extract_json_from_llm_response
+        json_str = _extract_json_from_llm_response(content)
         data = json.loads(json_str)
         result = {
             "attractions": data.get("attractions", []),
@@ -107,16 +168,8 @@ async def analyze_free_text(free_text: str) -> Dict[str, List[str]]:
     except Exception as e:
         print(f"⚠️ LLM分析额外要求失败，降级到简单提取: {str(e)[:100]}")
         attractions = []
-        known_landmarks = [
-            "广州塔", "圣心大教堂", "长隆野生动物园", "长隆欢乐世界", "长隆水上乐园",
-            "故宫", "天安门", "长城", "天坛", "颐和园", "圆明园", "西湖", "外滩",
-            "东方明珠", "迪士尼", "兵马俑", "大雁塔", "布达拉宫", "九寨沟",
-            "张家界", "黄山", "泰山", "鼓浪屿", "武夷山", "丽江古城",
-            "拙政园", "虎丘", "周庄", "乌镇", "千岛湖", "灵隐寺",
-            "珠江夜游", "白云山", "越秀公园", "陈家祠", "北京路",
-            "夫子庙", "中山陵", "黄鹤楼", "东湖", "武汉大学",
-        ]
-        for landmark in known_landmarks:
+        from ._landmarks import KNOWN_LANDMARKS
+        for landmark in KNOWN_LANDMARKS:
             if landmark in free_text:
                 attractions.append(landmark)
         return {"attractions": attractions, "food_preferences": [], "accommodation_preferences": [], "general_suggestions": []}
@@ -142,18 +195,8 @@ def _extract_must_visit_attractions(free_text: str) -> List[str]:
                 name = name.strip().rstrip('。.！!？?')
                 if name and 2 <= len(name) <= 20:
                     names.add(name)
-    known_landmarks = [
-        "广州塔", "圣心大教堂", "长隆野生动物园", "长隆欢乐世界", "长隆水上乐园",
-        "故宫", "天安门", "长城", "天坛", "颐和园", "圆明园", "西湖", "外滩",
-        "东方明珠", "迪士尼", "兵马俑", "大雁塔", "布达拉宫", "九寨沟",
-        "张家界", "黄山", "泰山", "鼓浪屿", "武夷山", "丽江古城",
-        "拙政园", "虎丘", "周庄", "乌镇", "千岛湖", "灵隐寺",
-        "珠江夜游", "白云山", "越秀公园", "陈家祠", "北京路",
-        "小蛮腰", "海心沙", "花城广场", "沙面", "上下九",
-        "夫子庙", "中山陵", "明孝陵", "玄武湖", "雨花台",
-        "黄鹤楼", "东湖", "户部巷", "归元寺", "武汉大学",
-    ]
-    for landmark in known_landmarks:
+    from ._landmarks import KNOWN_LANDMARKS
+    for landmark in KNOWN_LANDMARKS:
         if landmark in free_text:
             names.add(landmark)
     return list(names)
@@ -273,7 +316,7 @@ async def web_search_attractions_node(state: TripPlannerState) -> Dict[str, Any]
             return results, 0
 
         async def _search_bing():
-            """必应 MCP 搜索"""
+            """必应 MCP 搜索（中文被拦截时自动切换英文）"""
             results = []
             bing_service = get_bing_service() if _BING_AVAILABLE else None
             if not bing_service:
@@ -281,18 +324,40 @@ async def web_search_attractions_node(state: TripPlannerState) -> Dict[str, Any]
                 return results, 0
             print("  🔍 尝试使用必应 MCP 搜索...")
             count = 0
+            _MODERATION_KW = ["不当内容", "请修改输入", "content policy", "inappropriate", "unsafe"]
+
             for query in search_queries[:6]:
-                try:
-                    result = await bing_service.search(query=query, count=5)
-                    result_str = str(result) if not isinstance(result, str) else result
-                    if result_str and len(result_str) > 20:
-                        results.append(f"=== [必应] 搜索词: {query} ===\n{result_str}")
-                        count += 1
-                        print(f"  ✅ 必应搜索成功: {query}")
-                except Exception as e:
-                    print(f"  ⚠️ 必应搜索失败({query}): {e}")
+                en_query = _query_to_en(query)
+                candidates = [query]
+                if en_query != query:
+                    candidates.append(en_query)
+
+                for attempt, q in enumerate(candidates):
+                    try:
+                        result = await bing_service.search(query=q, count=5)
+                        result_str = str(result) if not isinstance(result, str) else result
+                        if result_str and len(result_str) > 50:
+                            results.append(f"=== [必应] 搜索词: {q} ===\n{result_str}")
+                            count += 1
+                            if attempt > 0:
+                                print(f"  ✅ 必应英文重试成功: '{query}' -> '{q}'")
+                            else:
+                                print(f"  ✅ 必应搜索成功: {q}")
+                            break
+                    except Exception as e:
+                        error_msg = str(e)
+                        if any(kw in error_msg for kw in _MODERATION_KW):
+                            if attempt < len(candidates) - 1:
+                                print(f"  🔄 中文被拦截，切换英文: '{q}' -> '{candidates[attempt+1]}'")
+                                continue
+                            print(f"  🚫 必应中英文均被拦截: {query}")
+                        else:
+                            print(f"  ⚠️ 必应搜索失败({q}): {error_msg[:100]}")
+                        break
             if count > 0:
                 print(f"  ✅ 必应 MCP 共获取 {count} 条结果")
+            else:
+                print(f"  ⚠️ 必应 MCP 0 条结果")
             return results, count
 
         # 并行执行主搜索 (小红书 + 必应)
@@ -400,20 +465,8 @@ async def extract_attractions_node(state: TripPlannerState) -> Dict[str, Any]:
         content = response.content.strip()
         pois = []
 
-        if "```json" in content:
-            json_start = content.find("```json") + 7
-            json_end = content.find("```", json_start)
-            json_str = content[json_start:json_end].strip()
-        elif "```" in content:
-            json_start = content.find("```") + 3
-            json_end = content.find("```", json_start)
-            json_str = content[json_start:json_end].strip()
-        elif "[" in content:
-            json_start = content.find("[")
-            json_end = content.rfind("]") + 1
-            json_str = content[json_start:json_end]
-        else:
-            raise ValueError("响应中未找到JSON")
+        from ..utils.parsing import _extract_json_from_llm_response
+        json_str = _extract_json_from_llm_response(content)
 
         pois = json.loads(json_str)
         if not isinstance(pois, list):

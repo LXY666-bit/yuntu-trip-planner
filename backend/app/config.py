@@ -55,6 +55,20 @@ class Settings(BaseSettings):
     llm_base_url: str = ""
     llm_model_name: str = ""
 
+    # 规划常量
+    daily_transport_cost_default: int = 50
+    max_attractions_per_day: int = 3
+    geocode_batch_size: int = 5
+    coord_proximity_threshold: float = 0.0001
+
+    # 超时默认值 (秒)
+    llm_tool_call_timeout: float = 15.0
+    mcp_call_timeout: float = 30.0
+    hotel_search_timeout: float = 45.0
+    extract_timeout: float = 90.0
+    sse_stream_timeout: float = 180.0
+    discovery_stream_timeout: float = 300.0
+
     # 日志配置
     log_level: str = "INFO"
 

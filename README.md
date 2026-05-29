@@ -47,6 +47,9 @@ helloagents-trip-planner/
 ├── backend/
 │   ├── run.py                          # 启动入口
 │   ├── requirements.txt                # Python 依赖
+│   ├── data/                           # 静态数据文件
+│   │   ├── city_season_weather.json    # 城市季节气候数据
+│   │   └── known_landmarks.json        # 知名地标列表
 │   ├── app/
 │   │   ├── config.py                   # 配置管理（pydantic-settings）
 │   │   ├── database.py                 # 数据库连接与会话管理
@@ -55,6 +58,7 @@ helloagents-trip-planner/
 │   │   │   ├── main.py                 # FastAPI 应用入口
 │   │   │   └── routes/                 # API 路由
 │   │   │       ├── trip_lg.py          # 行程规划 (LangGraph)
+│   │   │       ├── sse_utils.py        # SSE 流式响应工具
 │   │   │       ├── trip_draft.py       # 草稿管理
 │   │   │       ├── trip_history.py     # 历史行程
 │   │   │       ├── poi_lg.py           # POI 搜索
@@ -68,6 +72,7 @@ helloagents-trip-planner/
 │   │   │       ├── prompts.py          # LLM Prompt 模板
 │   │   │       ├── exceptions.py       # 重试策略与异常处理
 │   │   │       ├── nodes/              # Graph 节点实现
+│   │   │       │   ├── _landmarks.py   # 地标数据加载器
 │   │   │       │   ├── search.py       # 景点搜索 + 天气 + 酒店
 │   │   │       │   ├── discovery.py    # 景点发现（大量搜索）
 │   │   │       │   ├── cluster.py      # 景点聚类
@@ -87,6 +92,7 @@ helloagents-trip-planner/
 │   │   │   ├── db_models.py            # SQLAlchemy ORM 模型
 │   │   │   └── state.py                # LangGraph State 模型
 │   │   └── services/                   # 外部服务封装
+│   │       ├── base_mcp_service.py     # MCP 服务抽象基类
 │   │       ├── llm_service.py          # LLM 单例管理
 │   │       ├── langchain_amap_tools.py # 高德地图 MCP 工具
 │   │       ├── aigohotel_mcp_service.py# 酒店搜索 MCP

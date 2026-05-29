@@ -17,9 +17,8 @@
 """
 
 import json
-import asyncio
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import StreamingResponse
+from .sse_utils import make_sse_response, sse_event, sse_error
 from ...models.schemas import (
     TripRequest,
     TripPlanResponse,
@@ -119,35 +118,11 @@ async def plan_trip_stream(request: TripRequest):
         agent = get_trip_planner_agent()
         try:
             async for event in agent.plan_trip_stream(request):
-                data = json.dumps(event, ensure_ascii=False, default=str)
-                yield f"data: {data}\n\n"
+                yield sse_event(event)
         except Exception as e:
-            error_event = json.dumps({
-                "type": "error",
-                "message": f"流式生成失败: {str(e)}",
-                "progress": 0
-            }, ensure_ascii=False)
-            yield f"data: {error_event}\n\n"
+            yield sse_error(f"流式生成失败: {str(e)}")
 
-    async def heartbeat_wrapper():
-        async def inner():
-            async for chunk in event_generator():
-                yield chunk
-        async for chunk in inner():
-            yield chunk
-        while True:
-            await asyncio.sleep(15)
-            yield ": heartbeat\n\n"
-
-    return StreamingResponse(
-        heartbeat_wrapper(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
-        }
-    )
+    return make_sse_response(event_generator)
 
 
 @router.post(
@@ -160,32 +135,11 @@ async def discover_attractions_stream(request: TripRequest):
         agent = get_trip_planner_agent()
         try:
             async for event in agent.discover_attractions_stream(request):
-                data = json.dumps(event, ensure_ascii=False, default=str)
-                yield f"data: {data}\n\n"
+                yield sse_event(event)
         except Exception as e:
-            error_event = json.dumps({
-                "type": "error",
-                "message": f"景点发现失败: {str(e)}",
-                "progress": 0
-            }, ensure_ascii=False)
-            yield f"data: {error_event}\n\n"
+            yield sse_error(f"景点发现失败: {str(e)}")
 
-    async def heartbeat_wrapper():
-        async for chunk in event_generator():
-            yield chunk
-        while True:
-            await asyncio.sleep(15)
-            yield ": heartbeat\n\n"
-
-    return StreamingResponse(
-        heartbeat_wrapper(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
-        }
-    )
+    return make_sse_response(event_generator)
 
 
 @router.post(
@@ -274,32 +228,11 @@ async def plan_from_selections_stream(req: PlanFromSelectionsRequest):
                 weather_info=req.weather_info,
                 user_id=req.user_id,
             ):
-                data = json.dumps(event, ensure_ascii=False, default=str)
-                yield f"data: {data}\n\n"
+                yield sse_event(event)
         except Exception as e:
-            error_event = json.dumps({
-                "type": "error",
-                "message": f"规划失败: {str(e)}",
-                "progress": 0
-            }, ensure_ascii=False)
-            yield f"data: {error_event}\n\n"
+            yield sse_error(f"规划失败: {str(e)}")
 
-    async def heartbeat_wrapper():
-        async for chunk in event_generator():
-            yield chunk
-        while True:
-            await asyncio.sleep(15)
-            yield ": heartbeat\n\n"
-
-    return StreamingResponse(
-        heartbeat_wrapper(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
-        }
-    )
+    return make_sse_response(event_generator)
 
 
 @router.get(

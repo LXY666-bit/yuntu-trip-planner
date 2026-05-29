@@ -14,14 +14,8 @@ import json
 from unittest.mock import MagicMock, AsyncMock, patch
 from langchain_core.messages import AIMessage
 
-from app.agents.langgraph_agent import (
-    _parse_response,
-    _create_fallback_plan,
-    quality_gate_node,
-    route_after_quality_gate,
-    LangGraphTripPlanner,
-    TripPlannerState
-)
+from app.agents.langgraph_agent import LangGraphTripPlanner, TripPlannerState
+from app.agents.langgraph_agent.utils.parsing import _parse_response, _create_fallback_plan
 from app.models.schemas import TripRequest, TripPlan, Location
 
 # ================= Fixtures =================
@@ -107,42 +101,6 @@ def test_create_fallback_plan(mock_trip_request):
     assert fallback_plan.days[0].date == "2026-05-01"
     assert fallback_plan.days[2].date == "2026-05-03"
     assert "建议提前查看各景点的开放时间" in fallback_plan.overall_suggestions
-
-# ================= 测试 quality_gate_node =================
-
-def test_quality_gate_node_full_pipeline(base_state):
-    base_state["attractions"] = [{"id": "1", "name": "故宫"}]
-    base_state["weather"] = [{"date": "2026-05-01", "day_weather": "晴"}]
-    base_state["hotels"] = [{"id": "h1", "name": "如家"}]
-
-    result = quality_gate_node(base_state)
-
-    assert "quality_report" in result
-    assert result["quality_report"]["has_attractions"] is True
-    assert result["quality_report"]["has_weather"] is True
-    assert result["quality_report"]["has_hotels"] is True
-    assert result["quality_report"]["attraction_count"] == 1
-
-def test_quality_gate_node_degraded_mode(base_state):
-    result = quality_gate_node(base_state)
-
-    assert "quality_report" in result
-    assert result["quality_report"]["has_attractions"] is False
-    assert result["quality_report"]["has_weather"] is False
-    assert result["quality_report"]["has_hotels"] is False
-
-# ================= 测试 route_after_quality_gate =================
-
-def test_route_after_quality_gate_full(base_state):
-    base_state["quality_report"] = {"has_attractions": True}
-    assert route_after_quality_gate(base_state) == "full_pipeline"
-
-def test_route_after_quality_gate_degraded(base_state):
-    base_state["quality_report"] = {"has_attractions": False}
-    assert route_after_quality_gate(base_state) == "degraded_mode"
-
-def test_route_after_quality_gate_empty_report(base_state):
-    assert route_after_quality_gate(base_state) == "degraded_mode"
 
 # ================= 测试主流程 LangGraphTripPlanner =================
 

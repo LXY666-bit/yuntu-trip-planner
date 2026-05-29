@@ -57,12 +57,13 @@ export interface StreamOptions {
   signal?: AbortSignal
 }
 
-export async function generateTripPlanStream(
-  formData: TripFormData,
-  onEvent: (event: StreamEvent) => void,
+async function createSSEStream<T extends { type: string }>(
+  url: string,
+  body: unknown,
+  onEvent: (event: T) => void,
   options?: StreamOptions
 ): Promise<void> {
-  const timeout = options?.timeout || 180000
+  const timeout = options?.timeout || 300000
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), timeout)
 
@@ -72,10 +73,10 @@ export async function generateTripPlanStream(
 
   let response: Response
   try {
-    response = await fetch(`${API_BASE_URL}/api/trip/plan/stream`, {
+    response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(formData),
+      body: JSON.stringify(body),
       signal,
     })
   } catch (error: any) {
@@ -114,7 +115,7 @@ export async function generateTripPlanStream(
         const trimmed = line.trim()
         if (trimmed.startsWith('data: ')) {
           try {
-            const event: StreamEvent = JSON.parse(trimmed.slice(6))
+            const event = JSON.parse(trimmed.slice(6)) as T
             onEvent(event)
             if (event.type === 'complete' || event.type === 'error') {
               return
@@ -128,6 +129,19 @@ export async function generateTripPlanStream(
   } finally {
     reader.cancel().catch(() => {})
   }
+}
+
+export async function generateTripPlanStream(
+  formData: TripFormData,
+  onEvent: (event: StreamEvent) => void,
+  options?: StreamOptions
+): Promise<void> {
+  return createSSEStream<StreamEvent>(
+    `${API_BASE_URL}/api/trip/plan/stream`,
+    formData,
+    onEvent,
+    { timeout: 180000, signal: options?.signal }
+  )
 }
 
 export async function healthCheck(): Promise<any> {
@@ -191,72 +205,12 @@ export async function discoverAttractionsStream(
   onEvent: (event: DiscoveryStreamEvent) => void,
   options?: StreamOptions
 ): Promise<void> {
-  const timeout = options?.timeout || 300000
-  const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), timeout)
-
-  const signal = options?.signal
-    ? AbortSignal.any([options.signal, controller.signal])
-    : controller.signal
-
-  let response: Response
-  try {
-    response = await fetch(`${API_BASE_URL}/api/trip/discover/stream`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(formData),
-      signal,
-    })
-  } catch (error: any) {
-    clearTimeout(timeoutId)
-    if (error.name === 'AbortError') {
-      throw new Error('请求已取消或超时')
-    }
-    throw error
-  }
-
-  clearTimeout(timeoutId)
-
-  if (!response.ok) {
-    throw new Error(`请求失败: ${response.status}`)
-  }
-
-  const reader = response.body?.getReader()
-  if (!reader) {
-    throw new Error('无法获取响应流')
-  }
-
-  const decoder = new TextDecoder()
-  let buffer = ''
-
-  try {
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-
-      buffer += decoder.decode(value, { stream: true })
-
-      const lines = buffer.split('\n')
-      buffer = lines.pop() || ''
-
-      for (const line of lines) {
-        const trimmed = line.trim()
-        if (trimmed.startsWith('data: ')) {
-          try {
-            const event: DiscoveryStreamEvent = JSON.parse(trimmed.slice(6))
-            onEvent(event)
-            if (event.type === 'complete' || event.type === 'error') {
-              return
-            }
-          } catch (e) {
-            console.warn('解析SSE事件失败:', trimmed, e)
-          }
-        }
-      }
-    }
-  } finally {
-    reader.cancel().catch(() => {})
-  }
+  return createSSEStream<DiscoveryStreamEvent>(
+    `${API_BASE_URL}/api/trip/discover/stream`,
+    formData,
+    onEvent,
+    { timeout: 300000, signal: options?.signal }
+  )
 }
 
 
@@ -274,72 +228,12 @@ export async function planFromSelectionsStream(
   onEvent: (event: StreamEvent) => void,
   options?: StreamOptions
 ): Promise<void> {
-  const timeout = options?.timeout || 300000
-  const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), timeout)
-
-  const signal = options?.signal
-    ? AbortSignal.any([options.signal, controller.signal])
-    : controller.signal
-
-  let response: Response
-  try {
-    response = await fetch(`${API_BASE_URL}/api/trip/plan/from-selections/stream`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-      signal,
-    })
-  } catch (error: any) {
-    clearTimeout(timeoutId)
-    if (error.name === 'AbortError') {
-      throw new Error('请求已取消或超时')
-    }
-    throw error
-  }
-
-  clearTimeout(timeoutId)
-
-  if (!response.ok) {
-    throw new Error(`请求失败: ${response.status}`)
-  }
-
-  const reader = response.body?.getReader()
-  if (!reader) {
-    throw new Error('无法获取响应流')
-  }
-
-  const decoder = new TextDecoder()
-  let buffer = ''
-
-  try {
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-
-      buffer += decoder.decode(value, { stream: true })
-
-      const lines = buffer.split('\n')
-      buffer = lines.pop() || ''
-
-      for (const line of lines) {
-        const trimmed = line.trim()
-        if (trimmed.startsWith('data: ')) {
-          try {
-            const event: StreamEvent = JSON.parse(trimmed.slice(6))
-            onEvent(event)
-            if (event.type === 'complete' || event.type === 'error') {
-              return
-            }
-          } catch (e) {
-            console.warn('解析SSE事件失败:', trimmed, e)
-          }
-        }
-      }
-    }
-  } finally {
-    reader.cancel().catch(() => {})
-  }
+  return createSSEStream<StreamEvent>(
+    `${API_BASE_URL}/api/trip/plan/from-selections/stream`,
+    payload,
+    onEvent,
+    { timeout: 300000, signal: options?.signal }
+  )
 }
 
 

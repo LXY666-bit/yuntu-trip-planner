@@ -25,6 +25,37 @@ def _extract_json_array(text: str) -> Optional[List[Dict]]:
     return None
 
 
+def _extract_json_from_llm_response(content: str) -> str:
+    """从 LLM 响应文本中提取 JSON 字符串。
+
+    依次尝试: ```json ... ```, ``` ... ```, 裸 {...} 或 [...]。
+    抛出 ValueError 如果未找到 JSON 结构。
+    """
+    if "```json" in content:
+        start = content.find("```json") + 7
+        end = content.find("```", start)
+        if end != -1 and end > start:
+            return content[start:end].strip()
+        return content[start:].strip()
+    if "```" in content:
+        start = content.find("```") + 3
+        end = content.find("```", start)
+        if end != -1 and end > start:
+            return content[start:end].strip()
+        return content[start:].strip()
+    if "{" in content:
+        start = content.find("{")
+        end = content.rfind("}") + 1
+        if end > start:
+            return content[start:end]
+    if "[" in content:
+        start = content.find("[")
+        end = content.rfind("]") + 1
+        if end > start:
+            return content[start:end]
+    raise ValueError("响应中未找到JSON数据")
+
+
 def _build_poi_dict(poi: Dict) -> Dict:
     """从 AMap POI 数据构建完整字段字典，兼容 MCP 层不同序列化格式。"""
     result = {

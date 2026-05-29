@@ -436,16 +436,9 @@ onMounted(() => {
 .discover-header {
   position: sticky;
   top: 64px;
-  z-index: var(--z-sticky);
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-bottom: 1px solid var(--color-border-light);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-}
-
-[data-theme="dark"] .discover-header {
-  background: rgba(26, 21, 48, 0.9);
+  z-index: 10;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03), 0 2px 4px rgba(0, 0, 0, 0.02);
 }
 
 .header-content {
@@ -537,7 +530,7 @@ onMounted(() => {
 
 .search-bar :deep(.ant-input-affix-wrapper) {
   border-radius: var(--radius-pill) !important;
-  border: 1.5px solid var(--color-border-strong) !important;
+  border: 1.5px solid rgba(0, 0, 0, 0.1) !important;
   box-shadow: 0 2px 8px rgba(102, 126, 234, 0.06);
   transition: all var(--transition-fast);
 }
@@ -627,10 +620,10 @@ onMounted(() => {
 
 .filter-btn {
   padding: var(--space-1) var(--space-4);
-  border: 1.5px solid var(--color-border-strong);
+  border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: var(--radius-pill);
   background: var(--color-bg-elevated);
-  color: var(--color-text-secondary);
+  color: var(--color-text-primary);
   cursor: pointer;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);

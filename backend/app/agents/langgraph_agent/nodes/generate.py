@@ -1,6 +1,7 @@
 import json
 import re
 import random
+from pathlib import Path
 from typing import Dict, Any, List, Optional
 
 from langchain_core.messages import SystemMessage, HumanMessage
@@ -23,171 +24,28 @@ def _truncate_info(text: str, max_chars: int = 3000) -> str:
     return text[:max_chars] + f"\n... (已截断，原始数据共{len(text)}字符)"
 
 
-CITY_SEASON_WEATHER = {
-    "广州": {
-        1:  {"day_temp": 18, "night_temp": 10, "day_weather": "多云", "night_weather": "晴", "wind": "北风", "power": "2-3级"},
-        2:  {"day_temp": 19, "night_temp": 12, "day_weather": "阴", "night_weather": "多云", "wind": "东北风", "power": "2-3级"},
-        3:  {"day_temp": 22, "night_temp": 15, "day_weather": "多云", "night_weather": "小雨", "wind": "南风", "power": "2-3级"},
-        4:  {"day_temp": 26, "night_temp": 19, "day_weather": "多云", "night_weather": "晴", "wind": "南风", "power": "2-3级"},
-        5:  {"day_temp": 30, "night_temp": 23, "day_weather": "多云", "night_weather": "雷阵雨", "wind": "南风", "power": "2-3级"},
-        6:  {"day_temp": 32, "night_temp": 25, "day_weather": "雷阵雨", "night_weather": "多云", "wind": "南风", "power": "3-4级"},
-        7:  {"day_temp": 33, "night_temp": 26, "day_weather": "晴", "night_weather": "多云", "wind": "南风", "power": "2-3级"},
-        8:  {"day_temp": 33, "night_temp": 26, "day_weather": "雷阵雨", "night_weather": "多云", "wind": "南风", "power": "2-3级"},
-        9:  {"day_temp": 31, "night_temp": 24, "day_weather": "多云", "night_weather": "晴", "wind": "东北风", "power": "2-3级"},
-        10: {"day_temp": 28, "night_temp": 20, "day_weather": "晴", "night_weather": "多云", "wind": "北风", "power": "2-3级"},
-        11: {"day_temp": 24, "night_temp": 16, "day_weather": "晴", "night_weather": "多云", "wind": "北风", "power": "2-3级"},
-        12: {"day_temp": 20, "night_temp": 12, "day_weather": "多云", "night_weather": "晴", "wind": "北风", "power": "2-3级"},
-    },
-    "北京": {
-        1:  {"day_temp": -1, "night_temp": -10, "day_weather": "晴", "night_weather": "晴", "wind": "西北风", "power": "3-4级"},
-        2:  {"day_temp": 3,  "night_temp": -7,  "day_weather": "晴", "night_weather": "多云", "wind": "北风", "power": "3-4级"},
-        3:  {"day_temp": 11, "night_temp": 0,   "day_weather": "多云", "night_weather": "晴", "wind": "南风", "power": "2-3级"},
-        4:  {"day_temp": 20, "night_temp": 8,   "day_weather": "晴", "night_weather": "多云", "wind": "南风", "power": "3-4级"},
-        5:  {"day_temp": 27, "night_temp": 15,  "day_weather": "晴", "night_weather": "晴", "wind": "南风", "power": "2-3级"},
-        6:  {"day_temp": 31, "night_temp": 20,  "day_weather": "多云", "night_weather": "雷阵雨", "wind": "南风", "power": "2-3级"},
-        7:  {"day_temp": 32, "night_temp": 23,  "day_weather": "雷阵雨", "night_weather": "多云", "wind": "南风", "power": "2-3级"},
-        8:  {"day_temp": 30, "night_temp": 22,  "day_weather": "多云", "night_weather": "雷阵雨", "wind": "北风", "power": "2-3级"},
-        9:  {"day_temp": 26, "night_temp": 15,  "day_weather": "晴", "night_weather": "晴", "wind": "北风", "power": "2-3级"},
-        10: {"day_temp": 17, "night_temp": 6,   "day_weather": "晴", "night_weather": "多云", "wind": "北风", "power": "3-4级"},
-        11: {"day_temp": 7,  "night_temp": -2,  "day_weather": "多云", "night_weather": "晴", "wind": "西北风", "power": "3-4级"},
-        12: {"day_temp": 1,  "night_temp": -8,  "day_weather": "晴", "night_weather": "晴", "wind": "西北风", "power": "3-4级"},
-    },
-    "上海": {
-        1:  {"day_temp": 6,  "night_temp": 0,   "day_weather": "多云", "night_weather": "晴", "wind": "北风", "power": "3-4级"},
-        2:  {"day_temp": 8,  "night_temp": 2,   "day_weather": "阴", "night_weather": "小雨", "wind": "东北风", "power": "3-4级"},
-        3:  {"day_temp": 13, "night_temp": 6,   "day_weather": "多云", "night_weather": "小雨", "wind": "东风", "power": "2-3级"},
-        4:  {"day_temp": 19, "night_temp": 12,  "day_weather": "多云", "night_weather": "晴", "wind": "东南风", "power": "2-3级"},
-        5:  {"day_temp": 25, "night_temp": 17,  "day_weather": "晴", "night_weather": "多云", "wind": "南风", "power": "2-3级"},
-        6:  {"day_temp": 28, "night_temp": 22,  "day_weather": "小雨", "night_weather": "多云", "wind": "南风", "power": "2-3级"},
-        7:  {"day_temp": 33, "night_temp": 26,  "day_weather": "晴", "night_weather": "多云", "wind": "南风", "power": "3-4级"},
-        8:  {"day_temp": 33, "night_temp": 26,  "day_weather": "雷阵雨", "night_weather": "多云", "wind": "东南风", "power": "2-3级"},
-        9:  {"day_temp": 28, "night_temp": 21,  "day_weather": "多云", "night_weather": "晴", "wind": "东风", "power": "2-3级"},
-        10: {"day_temp": 22, "night_temp": 14,  "day_weather": "晴", "night_weather": "多云", "wind": "东北风", "power": "2-3级"},
-        11: {"day_temp": 15, "night_temp": 8,   "day_weather": "多云", "night_weather": "晴", "wind": "北风", "power": "2-3级"},
-        12: {"day_temp": 8,  "night_temp": 2,   "day_weather": "晴", "night_weather": "多云", "wind": "西北风", "power": "3-4级"},
-    },
-    "成都": {
-        1:  {"day_temp": 9,  "night_temp": 3,   "day_weather": "阴", "night_weather": "多云", "wind": "北风", "power": "1-2级"},
-        2:  {"day_temp": 12, "night_temp": 5,   "day_weather": "多云", "night_weather": "小雨", "wind": "东北风", "power": "1-2级"},
-        3:  {"day_temp": 17, "night_temp": 9,   "day_weather": "多云", "night_weather": "小雨", "wind": "南风", "power": "1-2级"},
-        4:  {"day_temp": 22, "night_temp": 14,  "day_weather": "多云", "night_weather": "晴", "wind": "南风", "power": "1-2级"},
-        5:  {"day_temp": 26, "night_temp": 18,  "day_weather": "晴", "night_weather": "多云", "wind": "南风", "power": "1-2级"},
-        6:  {"day_temp": 28, "night_temp": 21,  "day_weather": "阴", "night_weather": "小雨", "wind": "南风", "power": "1-2级"},
-        7:  {"day_temp": 30, "night_temp": 23,  "day_weather": "多云", "night_weather": "雷阵雨", "wind": "南风", "power": "1-2级"},
-        8:  {"day_temp": 30, "night_temp": 22,  "day_weather": "多云", "night_weather": "小雨", "wind": "北风", "power": "1-2级"},
-        9:  {"day_temp": 25, "night_temp": 19,  "day_weather": "阴", "night_weather": "小雨", "wind": "北风", "power": "1-2级"},
-        10: {"day_temp": 20, "night_temp": 14,  "day_weather": "阴", "night_weather": "多云", "wind": "北风", "power": "1-2级"},
-        11: {"day_temp": 14, "night_temp": 8,   "day_weather": "多云", "night_weather": "阴", "wind": "北风", "power": "1-2级"},
-        12: {"day_temp": 10, "night_temp": 4,   "day_weather": "阴", "night_weather": "多云", "wind": "北风", "power": "1-2级"},
-    },
-    "杭州": {
-        1:  {"day_temp": 6,  "night_temp": 0,   "day_weather": "多云", "night_weather": "晴", "wind": "北风", "power": "2-3级"},
-        2:  {"day_temp": 9,  "night_temp": 3,   "day_weather": "小雨", "night_weather": "阴", "wind": "东北风", "power": "2-3级"},
-        3:  {"day_temp": 14, "night_temp": 7,   "day_weather": "多云", "night_weather": "小雨", "wind": "东风", "power": "2-3级"},
-        4:  {"day_temp": 21, "night_temp": 13,  "day_weather": "晴", "night_weather": "多云", "wind": "东南风", "power": "2-3级"},
-        5:  {"day_temp": 26, "night_temp": 18,  "day_weather": "晴", "night_weather": "多云", "wind": "南风", "power": "2-3级"},
-        6:  {"day_temp": 29, "night_temp": 22,  "day_weather": "小雨", "night_weather": "多云", "wind": "南风", "power": "2-3级"},
-        7:  {"day_temp": 34, "night_temp": 26,  "day_weather": "晴", "night_weather": "多云", "wind": "南风", "power": "2-3级"},
-        8:  {"day_temp": 33, "night_temp": 26,  "day_weather": "雷阵雨", "night_weather": "多云", "wind": "东南风", "power": "2-3级"},
-        9:  {"day_temp": 28, "night_temp": 21,  "day_weather": "多云", "night_weather": "晴", "wind": "东风", "power": "2-3级"},
-        10: {"day_temp": 22, "night_temp": 14,  "day_weather": "晴", "night_weather": "多云", "wind": "东北风", "power": "2-3级"},
-        11: {"day_temp": 15, "night_temp": 8,   "day_weather": "多云", "night_weather": "晴", "wind": "北风", "power": "2-3级"},
-        12: {"day_temp": 8,  "night_temp": 2,   "day_weather": "晴", "night_weather": "多云", "wind": "西北风", "power": "2-3级"},
-    },
-    "深圳": {
-        1:  {"day_temp": 20, "night_temp": 13, "day_weather": "多云", "night_weather": "晴", "wind": "东北风", "power": "2-3级"},
-        2:  {"day_temp": 20, "night_temp": 14, "day_weather": "阴", "night_weather": "多云", "wind": "东北风", "power": "2-3级"},
-        3:  {"day_temp": 23, "night_temp": 17, "day_weather": "多云", "night_weather": "小雨", "wind": "南风", "power": "2-3级"},
-        4:  {"day_temp": 27, "night_temp": 21, "day_weather": "多云", "night_weather": "晴", "wind": "南风", "power": "2-3级"},
-        5:  {"day_temp": 30, "night_temp": 24, "day_weather": "多云", "night_weather": "雷阵雨", "wind": "南风", "power": "2-3级"},
-        6:  {"day_temp": 32, "night_temp": 26, "day_weather": "雷阵雨", "night_weather": "多云", "wind": "南风", "power": "3-4级"},
-        7:  {"day_temp": 33, "night_temp": 27, "day_weather": "晴", "night_weather": "多云", "wind": "南风", "power": "2-3级"},
-        8:  {"day_temp": 33, "night_temp": 27, "day_weather": "雷阵雨", "night_weather": "多云", "wind": "南风", "power": "2-3级"},
-        9:  {"day_temp": 31, "night_temp": 25, "day_weather": "多云", "night_weather": "晴", "wind": "东北风", "power": "2-3级"},
-        10: {"day_temp": 28, "night_temp": 22, "day_weather": "晴", "night_weather": "多云", "wind": "东北风", "power": "2-3级"},
-        11: {"day_temp": 24, "night_temp": 18, "day_weather": "晴", "night_weather": "多云", "wind": "北风", "power": "2-3级"},
-        12: {"day_temp": 21, "night_temp": 14, "day_weather": "多云", "night_weather": "晴", "wind": "北风", "power": "2-3级"},
-    },
-    "重庆": {
-        1:  {"day_temp": 10, "night_temp": 5,   "day_weather": "阴", "night_weather": "多云", "wind": "北风", "power": "1-2级"},
-        2:  {"day_temp": 12, "night_temp": 7,   "day_weather": "阴", "night_weather": "小雨", "wind": "东北风", "power": "1-2级"},
-        3:  {"day_temp": 17, "night_temp": 11,  "day_weather": "多云", "night_weather": "小雨", "wind": "南风", "power": "1-2级"},
-        4:  {"day_temp": 23, "night_temp": 15,  "day_weather": "多云", "night_weather": "晴", "wind": "南风", "power": "1-2级"},
-        5:  {"day_temp": 27, "night_temp": 20,  "day_weather": "多云", "night_weather": "阴", "wind": "南风", "power": "1-2级"},
-        6:  {"day_temp": 30, "night_temp": 23,  "day_weather": "小雨", "night_weather": "多云", "wind": "南风", "power": "1-2级"},
-        7:  {"day_temp": 34, "night_temp": 26,  "day_weather": "晴", "night_weather": "多云", "wind": "南风", "power": "1-2级"},
-        8:  {"day_temp": 35, "night_temp": 26,  "day_weather": "晴", "night_weather": "多云", "wind": "北风", "power": "1-2级"},
-        9:  {"day_temp": 28, "night_temp": 21,  "day_weather": "阴", "night_weather": "小雨", "wind": "北风", "power": "1-2级"},
-        10: {"day_temp": 20, "night_temp": 15,  "day_weather": "阴", "night_weather": "多云", "wind": "北风", "power": "1-2级"},
-        11: {"day_temp": 15, "night_temp": 10,  "day_weather": "多云", "night_weather": "阴", "wind": "北风", "power": "1-2级"},
-        12: {"day_temp": 11, "night_temp": 6,   "day_weather": "阴", "night_weather": "多云", "wind": "北风", "power": "1-2级"},
-    },
-    "西安": {
-        1:  {"day_temp": 3,  "night_temp": -4,  "day_weather": "晴", "night_weather": "晴", "wind": "西北风", "power": "2-3级"},
-        2:  {"day_temp": 7,  "night_temp": -2,  "day_weather": "多云", "night_weather": "晴", "wind": "东北风", "power": "2-3级"},
-        3:  {"day_temp": 14, "night_temp": 4,   "day_weather": "多云", "night_weather": "晴", "wind": "南风", "power": "2-3级"},
-        4:  {"day_temp": 21, "night_temp": 10,  "day_weather": "晴", "night_weather": "多云", "wind": "南风", "power": "2-3级"},
-        5:  {"day_temp": 27, "night_temp": 15,  "day_weather": "晴", "night_weather": "晴", "wind": "南风", "power": "2-3级"},
-        6:  {"day_temp": 32, "night_temp": 20,  "day_weather": "晴", "night_weather": "多云", "wind": "南风", "power": "2-3级"},
-        7:  {"day_temp": 34, "night_temp": 24,  "day_weather": "晴", "night_weather": "多云", "wind": "南风", "power": "2-3级"},
-        8:  {"day_temp": 32, "night_temp": 22,  "day_weather": "多云", "night_weather": "雷阵雨", "wind": "北风", "power": "2-3级"},
-        9:  {"day_temp": 26, "night_temp": 17,  "day_weather": "多云", "night_weather": "晴", "wind": "北风", "power": "2-3级"},
-        10: {"day_temp": 18, "night_temp": 9,   "day_weather": "晴", "night_weather": "多云", "wind": "北风", "power": "2-3级"},
-        11: {"day_temp": 10, "night_temp": 2,   "day_weather": "多云", "night_weather": "晴", "wind": "西北风", "power": "2-3级"},
-        12: {"day_temp": 4,  "night_temp": -3,  "day_weather": "晴", "night_weather": "晴", "wind": "西北风", "power": "2-3级"},
-    },
-    "南京": {
-        1:  {"day_temp": 5,  "night_temp": -2,  "day_weather": "多云", "night_weather": "晴", "wind": "北风", "power": "3-4级"},
-        2:  {"day_temp": 8,  "night_temp": 0,   "day_weather": "小雨", "night_weather": "阴", "wind": "东北风", "power": "2-3级"},
-        3:  {"day_temp": 14, "night_temp": 5,   "day_weather": "多云", "night_weather": "小雨", "wind": "东风", "power": "2-3级"},
-        4:  {"day_temp": 21, "night_temp": 12,  "day_weather": "晴", "night_weather": "多云", "wind": "东南风", "power": "2-3级"},
-        5:  {"day_temp": 27, "night_temp": 17,  "day_weather": "晴", "night_weather": "多云", "wind": "南风", "power": "2-3级"},
-        6:  {"day_temp": 30, "night_temp": 22,  "day_weather": "小雨", "night_weather": "多云", "wind": "南风", "power": "2-3级"},
-        7:  {"day_temp": 34, "night_temp": 26,  "day_weather": "晴", "night_weather": "多云", "wind": "南风", "power": "2-3级"},
-        8:  {"day_temp": 33, "night_temp": 25,  "day_weather": "雷阵雨", "night_weather": "多云", "wind": "东南风", "power": "2-3级"},
-        9:  {"day_temp": 28, "night_temp": 20,  "day_weather": "多云", "night_weather": "晴", "wind": "东风", "power": "2-3级"},
-        10: {"day_temp": 21, "night_temp": 12,  "day_weather": "晴", "night_weather": "多云", "wind": "东北风", "power": "2-3级"},
-        11: {"day_temp": 14, "night_temp": 6,   "day_weather": "多云", "night_weather": "晴", "wind": "北风", "power": "2-3级"},
-        12: {"day_temp": 7,  "night_temp": 0,   "day_weather": "晴", "night_weather": "多云", "wind": "西北风", "power": "3-4级"},
-    },
-    "武汉": {
-        1:  {"day_temp": 6,  "night_temp": -1,  "day_weather": "多云", "night_weather": "晴", "wind": "北风", "power": "2-3级"},
-        2:  {"day_temp": 9,  "night_temp": 2,   "day_weather": "小雨", "night_weather": "阴", "wind": "东北风", "power": "2-3级"},
-        3:  {"day_temp": 15, "night_temp": 7,   "day_weather": "多云", "night_weather": "小雨", "wind": "东风", "power": "2-3级"},
-        4:  {"day_temp": 22, "night_temp": 13,  "day_weather": "晴", "night_weather": "多云", "wind": "南风", "power": "2-3级"},
-        5:  {"day_temp": 28, "night_temp": 18,  "day_weather": "晴", "night_weather": "多云", "wind": "南风", "power": "2-3级"},
-        6:  {"day_temp": 31, "night_temp": 23,  "day_weather": "小雨", "night_weather": "多云", "wind": "南风", "power": "2-3级"},
-        7:  {"day_temp": 34, "night_temp": 26,  "day_weather": "晴", "night_weather": "多云", "wind": "南风", "power": "2-3级"},
-        8:  {"day_temp": 33, "night_temp": 25,  "day_weather": "雷阵雨", "night_weather": "多云", "wind": "北风", "power": "2-3级"},
-        9:  {"day_temp": 28, "night_temp": 20,  "day_weather": "多云", "night_weather": "晴", "wind": "北风", "power": "2-3级"},
-        10: {"day_temp": 21, "night_temp": 12,  "day_weather": "晴", "night_weather": "多云", "wind": "北风", "power": "2-3级"},
-        11: {"day_temp": 14, "night_temp": 6,   "day_weather": "多云", "night_weather": "晴", "wind": "北风", "power": "2-3级"},
-        12: {"day_temp": 8,  "night_temp": 1,   "day_weather": "晴", "night_weather": "多云", "wind": "北风", "power": "2-3级"},
-    },
-}
+_weather_data_cache: Optional[Dict[str, Any]] = None
 
-DEFAULT_SEASON_WEATHER = {
-    1:  {"day_temp": 5,  "night_temp": -2,  "day_weather": "多云", "night_weather": "晴", "wind": "北风", "power": "2-3级"},
-    2:  {"day_temp": 8,  "night_temp": 0,   "day_weather": "多云", "night_weather": "晴", "wind": "东北风", "power": "2-3级"},
-    3:  {"day_temp": 14, "night_temp": 5,   "day_weather": "多云", "night_weather": "小雨", "wind": "东风", "power": "2-3级"},
-    4:  {"day_temp": 21, "night_temp": 11,  "day_weather": "晴", "night_weather": "多云", "wind": "南风", "power": "2-3级"},
-    5:  {"day_temp": 27, "night_temp": 17,  "day_weather": "晴", "night_weather": "多云", "wind": "南风", "power": "2-3级"},
-    6:  {"day_temp": 31, "night_temp": 22,  "day_weather": "多云", "night_weather": "雷阵雨", "wind": "南风", "power": "2-3级"},
-    7:  {"day_temp": 33, "night_temp": 25,  "day_weather": "晴", "night_weather": "多云", "wind": "南风", "power": "2-3级"},
-    8:  {"day_temp": 32, "night_temp": 24,  "day_weather": "雷阵雨", "night_weather": "多云", "wind": "南风", "power": "2-3级"},
-    9:  {"day_temp": 27, "night_temp": 19,  "day_weather": "多云", "night_weather": "晴", "wind": "北风", "power": "2-3级"},
-    10: {"day_temp": 20, "night_temp": 12,  "day_weather": "晴", "night_weather": "多云", "wind": "北风", "power": "2-3级"},
-    11: {"day_temp": 12, "night_temp": 5,   "day_weather": "多云", "night_weather": "晴", "wind": "北风", "power": "2-3级"},
-    12: {"day_temp": 6,  "night_temp": -1,  "day_weather": "晴", "night_weather": "多云", "wind": "北风", "power": "2-3级"},
-}
+
+def _load_seasonal_weather_data() -> Dict[str, Any]:
+    global _weather_data_cache
+    if _weather_data_cache is None:
+        import json as _json
+        data_path = Path(__file__).parent.parent.parent.parent.parent / "data" / "city_season_weather.json"
+        with open(data_path, "r", encoding="utf-8") as f:
+            _weather_data_cache = _json.load(f)
+    return _weather_data_cache
 
 
 def _get_seasonal_weather(city: str, date_str: str) -> Dict[str, Any]:
     from datetime import datetime
+    data = _load_seasonal_weather_data()
+    cities = data["cities"]
+    default = data["default"]
     dt = datetime.strptime(date_str[:10], "%Y-%m-%d")
-    month = dt.month
-    city_data = CITY_SEASON_WEATHER.get(city, DEFAULT_SEASON_WEATHER)
-    month_data = city_data.get(month, DEFAULT_SEASON_WEATHER.get(month, DEFAULT_SEASON_WEATHER[5]))
+    month = str(dt.month)
+    city_data = cities.get(city, default)
+    month_data = city_data.get(month, default.get(month, default["5"]))
     day_temp = month_data["day_temp"] + random.randint(-2, 2)
     night_temp = month_data["night_temp"] + random.randint(-2, 1)
     weathers = ["晴", "多云", "阴", month_data["day_weather"]]
@@ -579,20 +437,8 @@ async def macro_planner_node(state: TripPlannerState) -> Dict[str, Any]:
         response = await _invoke_llm_with_retry(llm, messages)
         content = response.content
 
-        if "```json" in content:
-            json_start = content.find("```json") + 7
-            json_end = content.find("```", json_start)
-            json_str = content[json_start:json_end].strip()
-        elif "```" in content:
-            json_start = content.find("```") + 3
-            json_end = content.find("```", json_start)
-            json_str = content[json_start:json_end].strip()
-        elif "{" in content:
-            json_start = content.find("{")
-            json_end = content.rfind("}") + 1
-            json_str = content[json_start:json_end]
-        else:
-            raise ValueError("响应中未找到JSON数据")
+        from ..utils.parsing import _extract_json_from_llm_response
+        json_str = _extract_json_from_llm_response(content)
 
         data = json.loads(json_str)
         macro_plan = MacroPlan(**data)
@@ -849,20 +695,8 @@ async def day_plan_generator_node(state: DayPlanLocalState) -> Dict[str, Any]:
         response = await _invoke_llm_with_retry(llm, messages)
         content = response.content
 
-        if "```json" in content:
-            json_start = content.find("```json") + 7
-            json_end = content.find("```", json_start)
-            json_str = content[json_start:json_end].strip()
-        elif "```" in content:
-            json_start = content.find("```") + 3
-            json_end = content.find("```", json_start)
-            json_str = content[json_start:json_end].strip()
-        elif "{" in content:
-            json_start = content.find("{")
-            json_end = content.rfind("}") + 1
-            json_str = content[json_start:json_end]
-        else:
-            raise ValueError("响应中未找到JSON数据")
+        from ..utils.parsing import _extract_json_from_llm_response
+        json_str = _extract_json_from_llm_response(content)
 
         try:
             data = json.loads(json_str)
@@ -1380,24 +1214,32 @@ async def reduce_assemble_node(state: TripPlannerState) -> Dict[str, Any]:
 
     weather_list = [w for w in weather_list if w.date and trip_start <= w.date <= trip_end]
 
-    if not weather_list:
-        print(f"🌤️ 高德天气缺失，尝试 Open-Meteo 补充...")
+    if weather_list:
+        print(f"🌤️ AMap 覆盖 {len(weather_list)} 天: {[w.date for w in weather_list]}")
+
+    from datetime import datetime, timedelta
+    start_dt = datetime.strptime(trip_start[:10], "%Y-%m-%d")
+    all_dates = {(start_dt + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(request.travel_days)}
+    covered = {w.date for w in weather_list}
+    missing = all_dates - covered
+
+    if missing:
+        print(f"🌤️ 缺少 {len(missing)} 天天气数据: {sorted(missing)}，尝试 Open-Meteo 补充...")
         try:
             from ....services.open_meteo_service import fetch_open_meteo_weather
             om_weather = await fetch_open_meteo_weather(request.city, trip_start, trip_end)
             if om_weather:
-                weather_list = [w for w in om_weather if w.date and trip_start <= w.date <= trip_end]
-                print(f"🌤️ Open-Meteo 补充 {len(weather_list)} 天天气")
+                for w in om_weather:
+                    if w.date in missing:
+                        weather_list.append(w)
+                        missing.discard(w.date)
+                print(f"🌤️ Open-Meteo 补充了 {len(om_weather)} 天，仍缺 {len(missing)} 天")
         except Exception as e:
             print(f"⚠️ Open-Meteo 补充失败: {e}")
 
-    if not weather_list:
-        print(f"🌤️ 无有效天气数据（行程日期{trip_start}至{trip_end}无匹配），根据{request.city}季节气候生成天气...")
-        from datetime import datetime, timedelta
-        start_dt = datetime.strptime(trip_start[:10], "%Y-%m-%d")
-        for i in range(request.travel_days):
-            current_dt = start_dt + timedelta(days=i)
-            date_str = current_dt.strftime("%Y-%m-%d")
+    if missing:
+        print(f"🌤️ 仍缺 {len(missing)} 天，使用季节性气候数据生成...")
+        for date_str in sorted(missing):
             seasonal = _get_seasonal_weather(request.city, date_str)
             weather_list.append(WeatherInfo(
                 date=date_str,

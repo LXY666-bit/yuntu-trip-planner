@@ -323,17 +323,10 @@ const exportAsPDF = async () => {
 .tab-bar {
   position: sticky;
   top: 64px;
-  z-index: var(--z-sticky);
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-bottom: 1px solid var(--color-border-light);
+  z-index: 10;
+  background: #ffffff;
   padding: 12px 24px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-}
-
-[data-theme="dark"] .tab-bar {
-  background: rgba(26, 21, 48, 0.9);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03), 0 2px 4px rgba(0, 0, 0, 0.02);
 }
 
 .tab-bar-inner {
@@ -352,7 +345,7 @@ const exportAsPDF = async () => {
   border-radius: 8px;
   border: none;
   background: transparent;
-  color: var(--color-text-secondary);
+  color: var(--color-text-primary);
   font-size: 13px;
   font-weight: 600;
   font-family: var(--font-family-base);

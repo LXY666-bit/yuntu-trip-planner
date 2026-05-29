@@ -105,20 +105,8 @@ async def extract_attractions_expanded_node(state: DiscoveryState) -> Dict[str, 
 
         content = response.content.strip()
 
-        if "```json" in content:
-            json_start = content.find("```json") + 7
-            json_end = content.find("```", json_start)
-            json_str = content[json_start:json_end].strip()
-        elif "```" in content:
-            json_start = content.find("```") + 3
-            json_end = content.find("```", json_start)
-            json_str = content[json_start:json_end].strip()
-        elif "[" in content:
-            json_start = content.find("[")
-            json_end = content.rfind("]") + 1
-            json_str = content[json_start:json_end]
-        else:
-            raise ValueError("响应中未找到JSON")
+        from ..utils.parsing import _extract_json_from_llm_response
+        json_str = _extract_json_from_llm_response(content)
 
         pois = json.loads(json_str)
         if not isinstance(pois, list):

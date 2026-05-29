@@ -31,8 +31,8 @@
 
   /* === Text Colors === */
   --color-text-primary: #333333;
-  --color-text-secondary: #66615b;
-  --color-text-tertiary: #9a9a9a;
+  --color-text-secondary: #555555;
+  --color-text-tertiary: #777777;
   --color-text-muted: #dddddd;
   --color-text-white: #ffffff;
   --color-text-white-muted: rgba(255, 255, 255, 0.7);
@@ -136,15 +136,6 @@
   /* Dark mode overrides for compat aliases */
   --color-border-light: rgba(0, 0, 0, 0.06);
 }
-[data-theme="dark"] {
-  --color-bg-elevated: var(--color-bg-card);
-  --color-bg-tertiary: rgba(255, 255, 255, 0.04);
-  --color-glass-bg: rgba(30, 24, 64, 0.8);
-  --color-glass-border: rgba(255, 255, 255, 0.08);
-  --color-border-light: rgba(255, 255, 255, 0.06);
-  --shadow-card: var(--shadow-md);
-}
-
 /* === Global Reset & Base === */
 *, *::before, *::after { box-sizing: border-box; }
 
