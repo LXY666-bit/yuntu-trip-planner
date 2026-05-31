@@ -81,7 +81,9 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
   display: flex;
   align-items: center;
   transition: var(--transition-normal);
-  background: #ffffff;
+  background: linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(255,255,255,0.85) 100%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03), 0 2px 4px rgba(0, 0, 0, 0.02);
 }
 
@@ -116,7 +118,9 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
 .navbar:not(.navbar-light) .gh-link:hover { color: #fff; }
 
 .navbar.navbar-scrolled {
-  background: #ffffff !important;
+  background: linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0.92) 100%) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03), 0 2px 4px rgba(0, 0, 0, 0.02) !important;
 }
 .navbar.navbar-scrolled .navbar-brand { color: #333 !important; }

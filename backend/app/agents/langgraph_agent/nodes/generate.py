@@ -62,6 +62,67 @@ def _get_seasonal_weather(city: str, date_str: str) -> Dict[str, Any]:
     }
 
 
+def _extrapolate_from_existing(
+    existing: list[WeatherInfo],
+    target_date: str,
+) -> Optional[WeatherInfo]:
+    """利用已有天气数据的趋势外推缺失日期。
+
+    优先级: 最近邻 > 2天趋势平均 > 返回 None（由调用方降级到季节数据）
+    当已有数据不足时返回 None，调用方应继续使用季节性气候数据作为兜底。
+    """
+    if not existing:
+        return None
+
+    from datetime import datetime, timedelta
+    target_dt = datetime.strptime(target_date, "%Y-%m-%d")
+
+    # 按日期排序已有数据
+    dated: list[tuple[datetime, WeatherInfo]] = []
+    for w in existing:
+        try:
+            dated.append((datetime.strptime(w.date, "%Y-%m-%d"), w))
+        except (ValueError, AttributeError):
+            continue
+    if not dated:
+        return None
+    dated.sort(key=lambda x: x[0])
+
+    # 计算温度平均日变化趋势
+    avg_day_change = 0.0
+    avg_night_change = 0.0
+    if len(dated) >= 2:
+        day_changes = []
+        night_changes = []
+        for i in range(1, len(dated)):
+            day_changes.append(dated[i][1].day_temp - dated[i - 1][1].day_temp)
+            night_changes.append(dated[i][1].night_temp - dated[i - 1][1].night_temp)
+        avg_day_change = sum(day_changes) / len(day_changes)
+        avg_night_change = sum(night_changes) / len(night_changes)
+
+    # 找最近的有数据日期
+    nearest = min(dated, key=lambda x: abs((x[0] - target_dt).days))
+    days_diff = (target_dt - nearest[0]).days
+    base = nearest[1]
+
+    day_temp = max(-30, min(50, base.day_temp + int(round(avg_day_change * days_diff))))
+    night_temp = max(-30, min(40, base.night_temp + int(round(avg_night_change * days_diff))))
+
+    print(f"  [Extrapolate] {target_date}: 基于 {base.date} 外推 "
+          f"(趋势 {avg_day_change:+.1f}/{avg_night_change:+.1f}C/天, 间隔{days_diff}天) "
+          f"-> {day_temp}/{night_temp}C {base.day_weather}")
+
+    return WeatherInfo(
+        date=target_date,
+        day_weather=base.day_weather,
+        night_weather=base.night_weather,
+        day_temp=day_temp,
+        night_temp=night_temp,
+        wind_direction=base.wind_direction,
+        wind_power=base.wind_power,
+    )
+
+
 MACRO_PLANNER_PROMPT = """你是旅行宏观编排专家。你的唯一任务是根据景点聚类分组和酒店信息，输出一个极浅的行程骨架。
 
 **严格约束：**
@@ -1227,7 +1288,23 @@ async def reduce_assemble_node(state: TripPlannerState) -> Dict[str, Any]:
         print(f"🌤️ 缺少 {len(missing)} 天天气数据: {sorted(missing)}，尝试 Open-Meteo 补充...")
         try:
             from ....services.open_meteo_service import fetch_open_meteo_weather
-            om_weather = await fetch_open_meteo_weather(request.city, trip_start, trip_end)
+            from ....services.langchain_amap_tools import get_langchain_amap_service
+
+            # 先用高德获取城市坐标（避免 Open-Meteo 对中文城市名地理编码失败）
+            city_lat: Optional[float] = None
+            city_lon: Optional[float] = None
+            try:
+                amap = get_langchain_amap_service()
+                coords = await amap.geocode_city(request.city)
+                if coords:
+                    city_lat, city_lon = coords
+            except Exception as ge:
+                print(f"  ⚠️ 高德城市地理编码失败: {ge}")
+
+            om_weather = await fetch_open_meteo_weather(
+                request.city, trip_start, trip_end,
+                lat=city_lat, lon=city_lon,
+            )
             if om_weather:
                 for w in om_weather:
                     if w.date in missing:
@@ -1238,7 +1315,15 @@ async def reduce_assemble_node(state: TripPlannerState) -> Dict[str, Any]:
             print(f"⚠️ Open-Meteo 补充失败: {e}")
 
     if missing:
-        print(f"🌤️ 仍缺 {len(missing)} 天，使用季节性气候数据生成...")
+        print(f"[Weather] 仍缺 {len(missing)} 天，尝试从已有天气数据趋势外推...")
+        for date_str in sorted(missing):
+            extrapolated = _extrapolate_from_existing(weather_list, date_str)
+            if extrapolated:
+                weather_list.append(extrapolated)
+                missing.discard(date_str)
+
+    if missing:
+        print(f"[Weather] 仍缺 {len(missing)} 天，使用季节性气候数据...")
         for date_str in sorted(missing):
             seasonal = _get_seasonal_weather(request.city, date_str)
             weather_list.append(WeatherInfo(
@@ -1250,7 +1335,7 @@ async def reduce_assemble_node(state: TripPlannerState) -> Dict[str, Any]:
                 wind_direction=seasonal["wind_direction"],
                 wind_power=seasonal["wind_power"],
             ))
-        print(f"✅ 已生成 {len(weather_list)} 天季节性天气: {[(w.date, f'{w.day_temp}°C', w.day_weather) for w in weather_list]}")
+        print(f"[Weather] 已生成 {len(weather_list)} 天天气: {[(w.date, f'{w.day_temp}C', w.day_weather) for w in weather_list]}")
 
     trip_plan = TripPlan(
         city=request.city,

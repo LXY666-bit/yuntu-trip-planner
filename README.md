@@ -15,6 +15,21 @@
 - **PDF 导出** — 行程结果一键导出为 PDF 文件
 - **天气集成** — 高德天气 API + Open-Meteo 双重天气数据源，按季节气候兜底
 
+## 效果展示
+
+### 首页 — 行程规划入口
+![首页](image/home.png)
+
+### 发现页 — 智能景点发现与选择
+![发现页-景点卡片](image/discovery1.png)
+![发现页-地图模式](image/discovery2.png)
+
+### 结果页 — 行程详情与多 Tab 展示
+![结果页](image/result.png)
+
+### 历史页 — 行程管理与回顾
+![历史页](image/history.png)
+
 ## 技术栈
 
 ### 后端

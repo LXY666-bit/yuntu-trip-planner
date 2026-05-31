@@ -316,13 +316,14 @@ const exportAsPDF = async () => {
 <style scoped>
 .result-container {
   min-height: 100vh;
+  padding-top: 32px;
   background: var(--color-bg-secondary);
   transition: background var(--transition-normal);
 }
 
 .tab-bar {
   position: sticky;
-  top: 64px;
+  top: var(--header-height);
   z-index: 10;
   background: #ffffff;
   padding: 12px 24px;

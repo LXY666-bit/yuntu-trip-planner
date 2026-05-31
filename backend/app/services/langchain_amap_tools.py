@@ -59,7 +59,7 @@ class LangChainAmapService(BaseMCPService):
         return self._parse_result(result)
 
     async def get_weather(self, city: str) -> Any:
-        result = await self._call_tool("maps_weather", {"city": city})
+        result = await self._call_tool("maps_weather", {"city": city, "extensions": "all"})
         return self._parse_result(result)
 
     async def _geocode_address(self, address: str, city: Optional[str] = None) -> Optional[str]:
@@ -74,6 +74,31 @@ class LangChainAmapService(BaseMCPService):
                 location = geocodes[0].get("location", "")
                 if location:
                     return location
+        return None
+
+    async def geocode_city(self, city: str) -> Optional[tuple[float, float]]:
+        """使用高德地理编码获取城市中心坐标。
+
+        返回 (lat, lon) 或 None。用于 Open-Meteo 天气查询时提供精确坐标。
+        """
+        # 尝试城市名 + "市" 后缀
+        names = [city]
+        if not city.endswith("市"):
+            names.append(city + "市")
+
+        for name in names:
+            try:
+                location = await self._geocode_address(name)
+                if location:
+                    lon_str, lat_str = location.split(",")
+                    lat, lon = float(lat_str), float(lon_str)
+                    print(f"[AMap] 地理编码: {name} -> ({lat:.4f}, {lon:.4f})")
+                    return (lat, lon)
+            except Exception as e:
+                print(f"  ⚠️ 高德地理编码 {name} 失败: {e}")
+                continue
+
+        print(f"⚠️ 高德地理编码未找到城市坐标: {city}")
         return None
 
     async def plan_route(

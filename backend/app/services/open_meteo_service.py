@@ -3,10 +3,15 @@
 Open-Meteo does not require an API key for the public forecast endpoints.  We
 use it as a medium-range weather fallback when AMap cannot cover the requested
 trip dates.
+
+Supports two modes:
+1. 如果调用方提供了 lat/lon，直接使用坐标查询天气（推荐，跳过地理编码）
+2. 如果只有城市名，先通过 Open-Meteo 地理编码 API 查坐标再查天气（对中文支持差）
 """
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any, Optional
 
 import httpx
@@ -17,6 +22,8 @@ from ..models.schemas import WeatherInfo
 GEOCODING_URL = "https://geocoding-api.open-meteo.com/v1/search"
 FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 
+# 调用间隔控制（避免触发限流）
+_MIN_CALL_INTERVAL: float = 0.3
 
 WEATHER_CODE_TEXT = {
     0: "晴",
@@ -115,33 +122,78 @@ class OpenMeteoWeatherService:
         city: str,
         start_date: str,
         end_date: str,
+        *,
+        lat: Optional[float] = None,
+        lon: Optional[float] = None,
     ) -> list[WeatherInfo]:
-        async with httpx.AsyncClient(timeout=12.0) as client:
-            coords = await self._geocode_city(city, client)
-            if not coords:
-                print(f"⚠️ Open-Meteo 未找到城市坐标: {city}")
-                return []
+        """获取逐日天气预报。
 
-            latitude, longitude = coords
-            resp = await client.get(
-                FORECAST_URL,
-                params={
-                    "latitude": latitude,
-                    "longitude": longitude,
-                    "daily": ",".join([
-                        "weather_code",
-                        "temperature_2m_max",
-                        "temperature_2m_min",
-                        "wind_speed_10m_max",
-                        "wind_direction_10m_dominant",
-                    ]),
-                    "timezone": "Asia/Shanghai",
-                    "start_date": start_date,
-                    "end_date": end_date,
-                },
-            )
-            resp.raise_for_status()
-            return _parse_daily_forecast(resp.json())
+        如果提供了 lat/lon 则直接查询天气预报（推荐方式，对中文城市友好）；
+        否则先通过 Open-Meteo 地理编码 API 查坐标再查询天气。
+        内置重试机制（最多 2 次，间隔 1s/2s）。
+        """
+        last_error: Optional[str] = None
+        for attempt in range(3):
+            try:
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    latitude: float
+                    longitude: float
+
+                    if lat is not None and lon is not None:
+                        latitude, longitude = lat, lon
+                        print(f"[Open-Meteo] 使用传入坐标 ({lat:.4f}, {lon:.4f}) 查询 {city} 天气")
+                    else:
+                        coords = await self._geocode_city(city, client)
+                        if not coords:
+                            print(f"⚠️ Open-Meteo 未找到城市坐标: {city}")
+                            return []
+                        latitude, longitude = coords
+
+                    resp = await client.get(
+                        FORECAST_URL,
+                        params={
+                            "latitude": latitude,
+                            "longitude": longitude,
+                            "daily": ",".join([
+                                "weather_code",
+                                "temperature_2m_max",
+                                "temperature_2m_min",
+                                "wind_speed_10m_max",
+                                "wind_direction_10m_dominant",
+                            ]),
+                            "timezone": "Asia/Shanghai",
+                            "start_date": start_date,
+                            "end_date": end_date,
+                        },
+                    )
+                    resp.raise_for_status()
+                    result = _parse_daily_forecast(resp.json())
+                    if result:
+                        print(f"[Open-Meteo] 返回 {len(result)} 天天气: {[w.date for w in result]}")
+                    else:
+                        print(f"[Open-Meteo] 返回空结果: {city} {start_date}~{end_date}")
+                    return result
+
+            except (httpx.TimeoutException, httpx.ConnectError, httpx.RemoteProtocolError) as e:
+                last_error = f"网络错误(尝试{attempt+1}/3): {e}"
+                print(f"  [Retry] {last_error}")
+                if attempt < 2:
+                    await asyncio.sleep(1.0 * (attempt + 1))
+            except httpx.HTTPStatusError as e:
+                last_error = f"HTTP {e.response.status_code}(尝试{attempt+1}/3): {e}"
+                print(f"  [Retry] {last_error}")
+                if attempt < 2 and e.response.status_code >= 500:
+                    await asyncio.sleep(1.0 * (attempt + 1))
+                else:
+                    break  # 4xx 不重试
+            except Exception as e:
+                last_error = f"未知错误(尝试{attempt+1}/3): {e}"
+                print(f"  [Retry] {last_error}")
+                if attempt < 2:
+                    await asyncio.sleep(1.0 * (attempt + 1))
+
+        print(f"[Open-Meteo] 查询失败(已重试3次): {last_error}")
+        return []
 
 
 def _parse_daily_forecast(data: dict[str, Any]) -> list[WeatherInfo]:
@@ -172,6 +224,18 @@ async def fetch_open_meteo_weather(
     city: str,
     start_date: str,
     end_date: str,
+    *,
+    lat: Optional[float] = None,
+    lon: Optional[float] = None,
 ) -> list[WeatherInfo]:
+    """获取 Open-Meteo 天气预报（便捷函数）。
+
+    Args:
+        city: 城市名（日志用）
+        start_date: 开始日期 YYYY-MM-DD
+        end_date: 结束日期 YYYY-MM-DD
+        lat: 纬度（可选，传入则跳过地理编码）
+        lon: 经度（可选，传入则跳过地理编码）
+    """
     service = OpenMeteoWeatherService()
-    return await service.fetch_daily_weather(city, start_date, end_date)
+    return await service.fetch_daily_weather(city, start_date, end_date, lat=lat, lon=lon)
