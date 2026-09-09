@@ -12,8 +12,10 @@ from .nodes import (
     geocode_attractions_node,
     search_weather_node,
     search_hotel_node,
+    search_hotels_by_day_node,
     gather_search_node,
     search_food_node,
+    search_dining_pool_node,
     cluster_attractions_node,
     cluster_from_selections_node,
     plan_route_node,
@@ -25,6 +27,7 @@ from .nodes import (
     load_user_preferences_node,
     extract_preferences_node,
     save_preferences_node,
+    save_draft_node,
     extract_attractions_expanded_node,
     geocode_dispatch_node,
     geocode_batch_node,
@@ -211,8 +214,17 @@ def create_discovery_graph():
 
 
 def create_planning_graph():
-    """创建基于用户选择的行程规划 Graph — 接收选中景点和日程分配，生成完整行程"""
+    """骨架图：load_preferences → cluster_from_selections → 候选池/酒店搜索 → macro_planner → save_draft
+
+    详细阶段（day_plan_subgraph、reduce_assemble、global_synthesizer、
+    extract_preferences）不再在此图中执行，改由草稿 API 按需触发：
+    - POST /trip/draft/{id}/day/{n}/assemble  展开单日（规则时间轴 + 路线 + 文案）
+    - POST /trip/draft/{id}/day/{n}/recompute 用户编辑后只重算路线/预算，不调 LLM
+    - POST /trip/draft/{id}/finalize          定稿（全局综合 + 偏好提取）
+    """
     from langgraph.types import RetryPolicy
+
+    workflow = StateGraph(TripPlannerState)
 
     search_retry = RetryPolicy(
         max_attempts=2,
@@ -221,37 +233,20 @@ def create_planning_graph():
         retry_on=lambda e: isinstance(e, RetryableError),
     )
 
-    workflow = StateGraph(TripPlannerState)
-
+    workflow.add_node("load_user_preferences", load_user_preferences_node)
     workflow.add_node("cluster_from_selections", cluster_from_selections_node)
-    workflow.add_node("search_food", search_food_node)
-    workflow.add_node("search_hotel", search_hotel_node, retry=search_retry)
-    workflow.add_node("plan_route", plan_route_node)
+    workflow.add_node("search_dining_pool", search_dining_pool_node)
+    workflow.add_node("search_hotels_by_day", search_hotels_by_day_node, retry=search_retry)
     workflow.add_node("macro_planner", macro_planner_node)
-    workflow.add_node("reduce_assemble", reduce_assemble_node)
-    workflow.add_node("global_synthesizer", global_synthesizer_node)
-    workflow.add_node("extract_preferences", extract_preferences_node)
-    workflow.add_node("save_preferences", save_preferences_node)
-    workflow.add_node("day_plan_subgraph", day_plan_subgraph_node)
+    workflow.add_node("save_draft", save_draft_node)
 
-    workflow.add_edge(START, "cluster_from_selections")
-
-    workflow.add_edge("cluster_from_selections", "search_food")
-    workflow.add_edge("cluster_from_selections", "search_hotel")
-    workflow.add_edge("cluster_from_selections", "plan_route")
-
-    workflow.add_edge(["search_food", "search_hotel", "plan_route"], "macro_planner")
-
-    workflow.add_conditional_edges(
-        "macro_planner",
-        _route_to_day_plans,
-        ["day_plan_subgraph"]
-    )
-    workflow.add_edge("day_plan_subgraph", "reduce_assemble")
-    workflow.add_edge("reduce_assemble", "global_synthesizer")
-    workflow.add_edge("global_synthesizer", "extract_preferences")
-    workflow.add_edge("extract_preferences", "save_preferences")
-    workflow.add_edge("save_preferences", END)
+    workflow.add_edge(START, "load_user_preferences")
+    workflow.add_edge("load_user_preferences", "cluster_from_selections")
+    workflow.add_edge("cluster_from_selections", "search_dining_pool")
+    workflow.add_edge("cluster_from_selections", "search_hotels_by_day")
+    workflow.add_edge(["search_dining_pool", "search_hotels_by_day"], "macro_planner")
+    workflow.add_edge("macro_planner", "save_draft")
+    workflow.add_edge("save_draft", END)
 
     return workflow.compile()
 
@@ -298,6 +293,10 @@ class LangGraphTripPlanner:
             "global_narrative": None,
             "user_selected_attractions": [],
             "user_day_assignments": None,
+            "clusters_data": [],
+            "hotels_by_day": [],
+            "dining_pool": [],
+            "draft_id": None,
         }
 
     def _build_discovery_state(self, request, user_id: str = "default"):
@@ -414,16 +413,12 @@ class LangGraphTripPlanner:
         )
 
         PLANNING_NODE_INFO = {
-            "cluster_from_selections": {"message": "📊 正在聚类分析景点...", "progress": 15, "done_msg": "✅ 景点聚类完成"},
-            "search_food": {"message": "🍜 正在搜索美食...", "progress": 30, "done_msg": "✅ 美食搜索完成"},
-            "search_hotel": {"message": "🏨 正在搜索酒店...", "progress": 30, "done_msg": "✅ 酒店搜索完成"},
-            "plan_route": {"message": "🗺️ 正在规划路线...", "progress": 40, "done_msg": "✅ 路线规划完成"},
-            "macro_planner": {"message": "🏗️ 正在编排行程骨架...", "progress": 55, "done_msg": "✅ 行程骨架编排完成"},
-            "day_plan_subgraph": {"message": "📝 正在生成每日行程...", "progress": 70, "done_msg": "✅ 每日行程生成完成"},
-            "reduce_assemble": {"message": "🔧 正在合并行程数据...", "progress": 85, "done_msg": "✅ 行程合并完成"},
-            "global_synthesizer": {"message": "💡 正在生成全局建议...", "progress": 90, "done_msg": "✅ 全局建议生成完成"},
-            "extract_preferences": {"message": "📊 提取偏好...", "progress": 93, "done_msg": "✅ 偏好提取完成"},
-            "save_preferences": {"message": "💾 保存偏好...", "progress": 95, "done_msg": "✅ 偏好保存完成"},
+            "load_user_preferences": {"message": "📋 加载用户偏好...", "progress": 8, "done_msg": "✅ 用户偏好加载完成"},
+            "cluster_from_selections": {"message": "📊 正在智能分日...", "progress": 20, "done_msg": "✅ 景点分日完成"},
+            "search_dining_pool": {"message": "🍜 正在构建餐饮候选池...", "progress": 45, "done_msg": "✅ 餐饮候选池完成"},
+            "search_hotels_by_day": {"message": "🏨 正在搜索行程区域酒店...", "progress": 45, "done_msg": "✅ 酒店候选完成"},
+            "macro_planner": {"message": "🏗️ 正在编排行程骨架...", "progress": 70, "done_msg": "✅ 行程骨架编排完成"},
+            "save_draft": {"message": "💾 正在保存草稿...", "progress": 95, "done_msg": "✅ 草稿已保存"},
         }
 
         completed_nodes = set()
@@ -453,14 +448,22 @@ class LangGraphTripPlanner:
                             "progress": info["progress"],
                         }
 
-            trip_plan = final_state.get("trip_plan")
-
-            if not trip_plan:
-                print("⚠️ 警告：生成的计划为空，使用备用方案")
-                trip_plan = _create_fallback_plan(request, final_state)
-
-            plan_dict = trip_plan.model_dump() if hasattr(trip_plan, 'model_dump') else trip_plan.dict()
-            yield {"type": "complete", "message": "✅ 旅行计划生成完成!", "progress": 100, "data": plan_dict}
+            draft_id = final_state.get("draft_id")
+            if draft_id:
+                yield {
+                    "type": "complete",
+                    "message": "✅ 骨架已生成，可进入装配",
+                    "progress": 100,
+                    "draft_id": draft_id,
+                }
+            else:
+                # 骨架图未写入 draft_id（异常情况）— 退回到旧 trip_plan 行为
+                trip_plan = final_state.get("trip_plan")
+                if not trip_plan:
+                    trip_plan = _create_fallback_plan(request, final_state)
+                plan_dict = trip_plan.model_dump() if hasattr(trip_plan, 'model_dump') else trip_plan.dict()
+                yield {"type": "complete", "message": "✅ 旅行计划生成完成!",
+                       "progress": 100, "data": plan_dict}
 
             print(f"{'='*60}")
             print(f"✅ 基于选择的行程规划完成!")

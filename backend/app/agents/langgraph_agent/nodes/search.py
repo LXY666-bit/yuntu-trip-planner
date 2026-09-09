@@ -797,7 +797,7 @@ async def search_hotel_node(state: TripPlannerState) -> Dict[str, Any]:
         if not results:
             print("⚠️ search_hotel_node: LLM未调用工具，直接搜索...")
             try:
-                aigohotel_args = {
+                aigohotel_args: Dict[str, Any] = {
                     "place": request.city,
                     "placeType": "城市",
                     "originQuery": origin_query,
@@ -805,12 +805,16 @@ async def search_hotel_node(state: TripPlannerState) -> Dict[str, Any]:
                     "withHotelAmenities": True,
                     "withRoomAmenities": True,
                 }
-                if star_ratings:
-                    aigohotel_args["starRatings"] = star_ratings
+                # 新版 MCP Schema: checkInParam + filterOptions
+                check_in_param: Dict[str, Any] = {}
                 if request.start_date:
-                    aigohotel_args["checkIn"] = request.start_date
+                    check_in_param["checkInDate"] = request.start_date
                 if request.travel_days:
-                    aigohotel_args["stayNights"] = request.travel_days
+                    check_in_param["stayNights"] = request.travel_days
+                if check_in_param:
+                    aigohotel_args["checkInParam"] = check_in_param
+                if star_ratings:
+                    aigohotel_args["filterOptions"] = {"starRatings": star_ratings}
                 direct_result = await _invoke_tool_with_retry(
                     search_tool,
                     aigohotel_args,
@@ -828,7 +832,7 @@ async def search_hotel_node(state: TripPlannerState) -> Dict[str, Any]:
             print(f"🏨 搜索用户指定景点附近酒店: {must_attractions}")
             for attr_name in must_attractions[:3]:
                 try:
-                    nearby_args = {
+                    nearby_args: Dict[str, Any] = {
                         "place": attr_name,
                         "placeType": "景点",
                         "originQuery": f"搜索{attr_name}附近的酒店",
@@ -836,12 +840,18 @@ async def search_hotel_node(state: TripPlannerState) -> Dict[str, Any]:
                         "withHotelAmenities": True,
                         "withRoomAmenities": True,
                     }
+                    nearby_filter: Dict[str, Any] = {}
                     if star_ratings:
-                        nearby_args["starRatings"] = star_ratings
+                        nearby_filter["starRatings"] = star_ratings
+                    if nearby_filter:
+                        nearby_args["filterOptions"] = nearby_filter
+                    nearby_checkin: Dict[str, Any] = {}
                     if request.start_date:
-                        nearby_args["checkIn"] = request.start_date
+                        nearby_checkin["checkInDate"] = request.start_date
                     if request.travel_days:
-                        nearby_args["stayNights"] = request.travel_days
+                        nearby_checkin["stayNights"] = request.travel_days
+                    if nearby_checkin:
+                        nearby_args["checkInParam"] = nearby_checkin
                     nearby_result = await _invoke_tool_with_retry(
                         search_tool,
                         nearby_args,
@@ -899,3 +909,528 @@ async def gather_search_node(state: TripPlannerState) -> Dict[str, Any]:
             print(f"   - {err[:200]}")
 
     return {}
+
+
+# ============ 骨架阶段: 行程区域酒店候选（支持多城市按 Segment 搜索） ============
+
+from html.parser import HTMLParser
+
+
+class _HotelDescriptionTextParser(HTMLParser):
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.fragments: List[str] = []
+
+    def handle_data(self, data: str) -> None:
+        text = data.strip()
+        if text:
+            self.fragments.append(text)
+
+
+def _clean_hotel_description(description: Any) -> str:
+    parser = _HotelDescriptionTextParser()
+    parser.feed(str(description))
+    parser.close()
+    return re.sub(r"\s+", " ", " ".join(parser.fragments)).strip()
+
+
+def _unwrap_mcp_payload(raw: Any) -> Any:
+    """剥离 MCP 工具返回的多层包裹（text wrapper → JSON 字符串 → dict）。"""
+    import ast
+    data = raw
+    for _ in range(4):
+        if isinstance(data, str):
+            stripped = data.strip()
+            if not stripped:
+                return data
+            try:
+                data = json.loads(stripped)
+                continue
+            except (json.JSONDecodeError, TypeError):
+                try:
+                    data = ast.literal_eval(stripped)
+                    continue
+                except (ValueError, SyntaxError):
+                    return data
+        if isinstance(data, list) and data and isinstance(data[0], dict) and "text" in data[0]:
+            inner = data[0]["text"]
+            if isinstance(inner, str):
+                data = inner
+                continue
+        break
+    return data
+
+
+def _parse_aigohotel_hotels(raw: Any) -> List[Dict[str, Any]]:
+    """从 AIGoHotel SearchHotels 返回中尽力提取酒店字段，输出 Hotel 兼容 dict 列表。"""
+    data = _unwrap_mcp_payload(raw)
+    hotels_raw: List[Any] = []
+    if isinstance(data, dict):
+        for key in ("hotels", "data", "result", "results", "items"):
+            val = data.get(key)
+            if isinstance(val, list) and val:
+                hotels_raw = val
+                break
+            if isinstance(val, dict):
+                inner = val.get("hotels") or val.get("items") or val.get("list")
+                if isinstance(inner, list):
+                    hotels_raw = inner
+                    break
+        if not hotels_raw:
+            for v in data.values():
+                if isinstance(v, list) and v and isinstance(v[0], dict):
+                    hotels_raw = v
+                    break
+    elif isinstance(data, list):
+        hotels_raw = data
+
+    parsed: List[Dict[str, Any]] = []
+    for h in hotels_raw:
+        if not isinstance(h, dict):
+            continue
+        name = h.get("name") or h.get("hotelName") or h.get("title") or h.get("hotel_name")
+        if not name:
+            continue
+        item: Dict[str, Any] = {"name": str(name)}
+
+        address = h.get("address") or h.get("addr") or h.get("location_desc")
+        if address:
+            item["address"] = str(address)
+
+        lon = lat = None
+        loc = h.get("location") or h.get("position") or h.get("coordinate") or h.get("coordinates")
+        if isinstance(loc, dict):
+            lon = loc.get("longitude") or loc.get("lng") or loc.get("lon")
+            lat = loc.get("latitude") or loc.get("lat")
+        elif isinstance(loc, str) and "," in loc:
+            parts = loc.split(",")
+            if len(parts) >= 2:
+                lon, lat = parts[0], parts[1]
+        if lon is None:
+            lon = h.get("longitude") or h.get("lng") or h.get("lon")
+            lat = h.get("latitude") or h.get("lat")
+        if lon is not None and lat is not None:
+            try:
+                lon_f = float(lon)
+                lat_f = float(lat)
+                if 73 < lon_f < 136 and 3 < lat_f < 54:
+                    item["location"] = {"longitude": lon_f, "latitude": lat_f}
+            except (TypeError, ValueError):
+                pass
+
+        star = h.get("starRating") or h.get("star") or h.get("stars") or h.get("star_rating")
+        if star is not None:
+            try:
+                item["star_rating"] = float(star)
+            except (TypeError, ValueError):
+                pass
+
+        hotel_id = h.get("hotelId") or h.get("hotel_id") or h.get("id")
+        if hotel_id is not None:
+            item["hotel_id"] = hotel_id
+
+        price_obj = h.get("price")
+        if isinstance(price_obj, dict):
+            current_price = price_obj.get("lowestPrice") or price_obj.get("price")
+            if price_obj.get("hasPrice", current_price is not None) and current_price is not None:
+                try:
+                    item["price"] = float(current_price)
+                except (TypeError, ValueError):
+                    pass
+            currency = price_obj.get("currency")
+            if currency:
+                item["currency"] = str(currency)
+
+        for src_key, dst_key in (("price", "price"), ("totalPrice", "price"), ("originalPrice", "original_price")):
+            v = h.get(src_key)
+            if isinstance(v, dict):
+                continue
+            if v is not None and dst_key not in item:
+                try:
+                    item[dst_key] = float(v)
+                except (TypeError, ValueError):
+                    pass
+
+        item.setdefault("currency", str(h.get("currency") or "CNY"))
+
+        ham = h.get("hotelAmenities") or h.get("hotel_amenities") or h.get("amenities")
+        if isinstance(ham, list):
+            item["hotel_amenities"] = [str(a) for a in ham if a]
+        ram = h.get("roomAmenities") or h.get("room_amenities")
+        if isinstance(ram, list):
+            item["room_amenities"] = [str(a) for a in ram if a]
+
+        desc = h.get("description") or h.get("intro") or h.get("summary")
+        if desc:
+            cleaned_desc = _clean_hotel_description(desc)
+            if cleaned_desc:
+                item["description"] = cleaned_desc[:500]
+
+        img = h.get("imageUrl") or h.get("image") or h.get("photo") or h.get("mainImage")
+        if img:
+            item["image_url"] = str(img)
+        durl = h.get("bookingUrl") or h.get("detailUrl") or h.get("url") or h.get("link")
+        if durl:
+            item["detail_url"] = str(durl)
+
+        dim = h.get("distanceInMeter") or h.get("distanceInMeters") or h.get("distance_in_meters")
+        if dim is not None:
+            try:
+                item["distance_in_meters"] = int(float(dim))
+            except (TypeError, ValueError):
+                pass
+
+        rating = h.get("rating") or h.get("score") or h.get("commentScore") or h.get("comment_score")
+        if rating is not None:
+            item["rating"] = str(rating)
+
+        hotel_type = h.get("type") or h.get("hotelType") or h.get("category")
+        if hotel_type:
+            item["type"] = str(hotel_type)
+
+        if "price" in item and item.get("price"):
+            try:
+                item["estimated_cost"] = int(float(item["price"]))
+            except (TypeError, ValueError):
+                pass
+        if "estimated_cost" not in item:
+            star = item.get("star_rating")
+            if star and star > 0:
+                item["estimated_cost"] = int(star * 200)
+            else:
+                item["estimated_cost"] = 500
+
+        parsed.append(item)
+    return parsed
+
+
+def _hotels_cluster_centroid(cluster: List[Dict[str, Any]]) -> Optional[tuple]:
+    """计算坐标算术平均质心 (lon, lat)，无有效坐标返回 None。"""
+    coords = [
+        (c.get("longitude"), c.get("latitude"))
+        for c in cluster
+        if isinstance(c.get("longitude"), (int, float))
+        and isinstance(c.get("latitude"), (int, float))
+        and 73 < c["longitude"] < 136 and 3 < c["latitude"] < 54
+    ]
+    if not coords:
+        return None
+    return (
+        sum(lon for lon, _ in coords) / len(coords),
+        sum(lat for _, lat in coords) / len(coords),
+    )
+
+
+def _cluster_outer_radius_km(cluster: List[Dict[str, Any]], centroid: tuple) -> float:
+    from ..utils.geo import _haversine_distance
+    lon_c, lat_c = centroid
+    max_d = 0.0
+    for c in cluster:
+        if isinstance(c.get("longitude"), (int, float)) and isinstance(c.get("latitude"), (int, float)):
+            d = _haversine_distance(lat_c, lon_c, c["latitude"], c["longitude"])
+            max_d = max(max_d, d)
+    return max_d
+
+
+def _enrich_hotels_with_distance(hotels: List[Dict[str, Any]], centroid: tuple) -> None:
+    """给每家酒店补上"到当日质心"的真实距离（如果有坐标）。"""
+    from ..utils.geo import _haversine_distance
+    lon_c, lat_c = centroid
+    for h in hotels:
+        loc = h.get("location")
+        if isinstance(loc, dict) and loc.get("longitude") and loc.get("latitude"):
+            d_km = _haversine_distance(lat_c, lon_c, loc["latitude"], loc["longitude"])
+            h["_centroid_distance_km"] = d_km
+            h["distance_in_meters"] = int(d_km * 1000)
+            h["distance"] = f"距当日中心 {d_km:.1f} 公里"
+
+
+def _rank_day_hotels(hotels: List[Dict[str, Any]], top_n: int = 5) -> List[Dict[str, Any]]:
+    """按 (有星级, 星级 desc, 距离 asc) 排序，去重保留 top_n。"""
+    def sort_key(h: Dict[str, Any]):
+        star = h.get("star_rating")
+        dist = h.get("_centroid_distance_km", 999.0)
+        return (
+            0 if star is not None else 1,
+            -(star or 0),
+            dist,
+        )
+    seen_names: set = set()
+    deduped = []
+    for h in sorted(hotels, key=sort_key):
+        name = h.get("name", "").strip()
+        if name and name not in seen_names:
+            seen_names.add(name)
+            deduped.append(h)
+    return deduped[:top_n]
+
+
+def _format_hotels_by_day_text(hotels_by_day: List[List[Dict[str, Any]]]) -> str:
+    """把酒店候选格式化为给 macro_planner 看的文本。
+
+    所有天共享同一份候选时（行程级搜索的常态），只打印一次，避免重复噪声。
+    """
+    if not hotels_by_day:
+        return ""
+
+    def _names_sig(day_hotels: List[Dict[str, Any]]) -> tuple:
+        return tuple(h.get("name", "") for h in day_hotels)
+
+    sigs = {_names_sig(d) for d in hotels_by_day}
+    shared = len(sigs) == 1 and hotels_by_day[0]
+
+    lines: List[str] = []
+
+    def _format_one_block(day_hotels: List[Dict[str, Any]], header: str) -> None:
+        lines.append(header)
+        if not day_hotels:
+            lines.append("  （无候选）")
+            return
+        for j, h in enumerate(day_hotels, 1):
+            star = h.get("star_rating")
+            price = h.get("price")
+            dist = h.get("distance") or ""
+            addr = h.get("address") or ""
+            loc = h.get("location") or {}
+            loc_str = ""
+            if isinstance(loc, dict) and loc.get("longitude"):
+                loc_str = f" 坐标({loc['longitude']:.5f},{loc['latitude']:.5f})"
+            parts = [f"  {j}. {h['name']}"]
+            if star is not None:
+                parts.append(f"{star}星")
+            if price is not None:
+                parts.append(f"¥{int(price)}")
+            if dist:
+                parts.append(dist)
+            if addr:
+                parts.append(addr)
+            lines.append(" | ".join(parts) + loc_str)
+
+    if shared:
+        _format_one_block(hotels_by_day[0], f"=== 候选酒店（全程 {len(hotels_by_day)} 天共用同一份候选） ===")
+    else:
+        last_city = None
+        for i, day_hotels in enumerate(hotels_by_day):
+            header = f"=== 第{i + 1}天候选酒店 ==="
+            _format_one_block(day_hotels, header)
+    return "\n".join(lines)
+
+
+async def _aigohotel_search_segment(
+    search_tool: Any,
+    rep_name: str,
+    city: str,
+    accommodation: str,
+    centroid: tuple,
+    radius_km: float,
+    star_ratings: list,
+    check_in: Optional[str],
+) -> List[Dict[str, Any]]:
+    """对一个城市 Segment 调一次 AIGoHotel SearchHotels（景点级），返回已解析酒店列表。"""
+    distance_m = int(max(radius_km + 2.0, 2.0) * 1000)
+    distance_m = min(distance_m, 20000)
+    args: Dict[str, Any] = {
+        "place": rep_name,
+        "placeType": "景点",
+        "originQuery": f"搜索{city}{rep_name}附近的{accommodation or ''}酒店".strip(),
+        "size": 8,
+        "withHotelAmenities": True,
+        "withRoomAmenities": True,
+        "filterOptions": {"distanceInMeter": distance_m},
+    }
+    if star_ratings:
+        args["filterOptions"]["starRatings"] = star_ratings
+    if check_in:
+        args["checkInParam"] = {"checkInDate": check_in, "stayNights": 1}
+
+    try:
+        raw = await _invoke_tool_with_retry(search_tool, args, max_retries=1, per_attempt_timeout=30.0)
+    except Exception as e:
+        print(f"  ⚠️ AIGoHotel 景点搜索失败 [{rep_name}]: {str(e)[:120]}")
+        return []
+
+    hotels = _parse_aigohotel_hotels(raw)
+    _enrich_hotels_with_distance(hotels, centroid)
+    return hotels
+
+
+async def _aigohotel_city_fallback(
+    search_tool: Any,
+    city: str,
+    accommodation: str,
+    star_ratings: list,
+    check_in: Optional[str],
+    stay_nights: int,
+) -> List[Dict[str, Any]]:
+    """城市级兜底搜索，用于 Segment 无坐标或景点搜索失败时。"""
+    args: Dict[str, Any] = {
+        "place": city,
+        "placeType": "城市",
+        "originQuery": f"搜索{city}{accommodation or ''}酒店".strip(),
+        "size": 8,
+        "withHotelAmenities": True,
+        "withRoomAmenities": True,
+    }
+    if star_ratings:
+        args["filterOptions"] = {"starRatings": star_ratings}
+    if check_in:
+        args["checkInParam"] = {"checkInDate": check_in, "stayNights": stay_nights}
+
+    try:
+        raw = await _invoke_tool_with_retry(search_tool, args, max_retries=2, per_attempt_timeout=30.0)
+    except Exception as e:
+        print(f"  ⚠️ AIGoHotel 城市级兜底失败 [{city}]: {str(e)[:120]}")
+        return []
+    return _parse_aigohotel_hotels(raw)
+
+
+def _day_city_list(request) -> List[str]:
+    """把多城市行程展开成 day -> city 列表；单城市时所有天同城。"""
+    cities = getattr(request, "cities", None) or []
+    travel_days = request.travel_days
+    if not cities:
+        return [request.city] * travel_days
+    out: List[str] = []
+    for cs in cities:
+        out.extend([cs.city] * max(cs.days, 0))
+    if len(out) < travel_days:
+        out.extend([cities[-1].city] * (travel_days - len(out)))
+    return out[:travel_days]
+
+
+async def search_hotels_by_day_node(state: TripPlannerState) -> Dict[str, Any]:
+    """按连续城市 Segment 搜索行程区域酒店，写入 hotels_by_day + hotels_info。
+
+    多城市升级点（相对"整趟旅程只搜一次"）：
+    - 北京 Day1-Day2 → 北京景点质心 → 北京酒店候选 A
+    - 西安 Day3-Day5 → 西安景点质心 → 西安酒店候选 B
+    每个 Segment 内：质心 + 覆盖半径 → 景点级搜索 → 城市级兜底。
+    """
+    print("🏨 执行节点: search_hotels_by_day_node (按城市 Segment)")
+    request = state["request"]
+    clusters: List[List[Dict[str, Any]]] = state.get("clusters_data") or []
+    travel_days = request.travel_days
+
+    from ....services.aigohotel_mcp_service import get_aigohotel_service
+    aigohotel_service = get_aigohotel_service()
+    if not aigohotel_service:
+        return {
+            "hotels_info": "",
+            "hotels_by_day": [[] for _ in range(travel_days)],
+            "errors": ["search_hotels_by_day: AIGoHotel 服务未配置"],
+        }
+
+    try:
+        await aigohotel_service.get_tools()
+        search_tool = await aigohotel_service.get_tool("SearchHotels")
+        if not search_tool:
+            search_tool = await aigohotel_service.get_tool("find-hotels")
+        if not search_tool:
+            return {
+                "hotels_info": "",
+                "hotels_by_day": [[] for _ in range(travel_days)],
+                "errors": ["search_hotels_by_day: SearchHotels 工具不可用"],
+            }
+    except Exception as e:
+        return {
+            "hotels_info": "",
+            "hotels_by_day": [[] for _ in range(travel_days)],
+            "errors": [f"search_hotels_by_day: AIGoHotel 初始化失败 - {str(e)[:200]}"],
+        }
+
+    accommodation = request.accommodation or ""
+    star_ratings = _accommodation_to_star_ratings(accommodation)
+
+    while len(clusters) < travel_days:
+        clusters.append([])
+
+    day_city = _day_city_list(request)
+
+    # 按连续相同城市切 Segment
+    segments: List[Dict[str, Any]] = []  # [{city, days: [day_idx,...]}]
+    for idx, city in enumerate(day_city):
+        if segments and segments[-1]["city"] == city:
+            segments[-1]["days"].append(idx)
+        else:
+            segments.append({"city": city, "days": [idx]})
+
+    hotels_by_day: List[List[Dict[str, Any]]] = [[] for _ in range(travel_days)]
+    info_blocks: List[str] = []
+
+    for seg in segments:
+        city = seg["city"]
+        seg_days = seg["days"]
+        seg_attrs: List[Dict[str, Any]] = []
+        for d in seg_days:
+            seg_attrs.extend(clusters[d] if d < len(clusters) else [])
+
+        centroid = _hotels_cluster_centroid(seg_attrs) if seg_attrs else None
+        ranked: List[Dict[str, Any]] = []
+
+        if centroid and seg_attrs:
+            from ..utils.geo import _haversine_distance
+            best_poi = min(
+                seg_attrs,
+                key=lambda p: _haversine_distance(centroid[1], centroid[0], p.get("latitude", 0), p.get("longitude", 0)) if isinstance(p.get("longitude"), (int, float)) else 999,
+            )
+            rep_name = best_poi.get("name", city)
+
+            max_radius_km = _cluster_outer_radius_km(seg_attrs, centroid)
+            distance_m = int(max(max_radius_km + 2.0, 3.0) * 1000)
+            distance_m = min(distance_m, 20000)
+
+            print(f" 🔎 [{city}] 行程质心: ({centroid[0]:.4f}, {centroid[1]:.4f}), 锚点景点: '{rep_name}', 搜索半径: {distance_m}m")
+
+            hotels = await _aigohotel_search_segment(
+                search_tool, rep_name, city, accommodation,
+                centroid, max_radius_km, star_ratings,
+                request.start_date,
+            )
+            if hotels:
+                _enrich_hotels_with_distance(hotels, centroid)
+                ranked = _rank_day_hotels(hotels, top_n=5)
+
+        if not ranked:
+            print(f" ⚠️ [{city}] 景点级搜索无结果，使用城市级兜底")
+            city_hotels = await _aigohotel_city_fallback(
+                search_tool, city, accommodation, star_ratings,
+                request.start_date, max(len(seg_days), 1),
+            )
+            if city_hotels and centroid:
+                _enrich_hotels_with_distance(city_hotels, centroid)
+            ranked = _rank_day_hotels(city_hotels, top_n=5) if city_hotels else []
+
+        for d in seg_days:
+            hotels_by_day[d] = list(ranked)
+
+        if len(segments) > 1 or len(seg_days) < travel_days:
+            header = f"=== {city} 第{seg_days[0] + 1}-{seg_days[-1] + 1}天候选酒店 ==="
+            lines = [header]
+            for j, h in enumerate(ranked, 1):
+                star = h.get("star_rating")
+                price = h.get("price")
+                dist = h.get("distance") or ""
+                parts = [f"  {j}. {h['name']}"]
+                if star is not None:
+                    parts.append(f"{star}星")
+                if price is not None:
+                    parts.append(f"¥{int(price)}")
+                if dist:
+                    parts.append(dist)
+                if h.get("address"):
+                    parts.append(h["address"])
+                lines.append(" | ".join(parts))
+            info_blocks.append("\n".join(lines))
+        else:
+            info_blocks.append(_format_hotels_by_day_text(hotels_by_day))
+
+        print(f" ✅ [{city}] Segment 完成: {len(ranked)} 家候选, 分配给 {len(seg_days)} 天")
+
+    hotels_info = "\n".join(b for b in info_blocks if b)
+    print(f"✅ 按城市 Segment 酒店搜索完成: {len(segments)} 个 Segment")
+
+    return {
+        "hotels_info": hotels_info,
+        "hotels_by_day": hotels_by_day,
+        "aigohotel_raw_results": hotels_info,
+    }

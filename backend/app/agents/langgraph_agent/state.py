@@ -1,4 +1,4 @@
-from typing import TypedDict, Annotated, List, Optional, Any
+from typing import TypedDict, Annotated, List, Optional, Any, Dict
 import operator
 
 from langchain_core.messages import BaseMessage
@@ -43,6 +43,10 @@ class TripPlannerState(TypedDict):
     global_narrative: Optional[str]
     user_selected_attractions: List[dict]
     user_day_assignments: Optional[List[List[dict]]]
+    clusters_data: List[List[dict]]
+    hotels_by_day: List[List[dict]]
+    dining_pool: List[Dict[str, Any]]   # 每日 DiningPoolDay-shape dict 列表（骨架阶段产物）
+    draft_id: Optional[str]             # save_draft_node 写入的草稿 ID
 
 
 class DayPlanLocalState(TypedDict):

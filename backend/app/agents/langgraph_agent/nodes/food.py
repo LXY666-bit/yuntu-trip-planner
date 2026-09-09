@@ -1,5 +1,7 @@
 from typing import Dict, Any, List, Optional
 
+import asyncio
+
 from langchain_core.messages import SystemMessage, HumanMessage
 
 from ..exceptions import _invoke_tool_with_retry, _invoke_llm_with_retry
@@ -8,6 +10,7 @@ from ..state import TripPlannerState, DayPlanLocalState
 from ....services.langchain_amap_tools import get_langchain_amap_service
 from ....services.llm_service import get_llm
 from ....services.preferences_service import format_preference_hint
+from ....models.schemas import DiningCategory
 
 
 CITY_FOOD_MAP = {
@@ -181,3 +184,256 @@ async def day_food_search_node(state: DayPlanLocalState) -> Dict[str, Any]:
     day_food_info = "\n".join(food_results) if food_results else ""
     print(f"  ✅ 第{day_index + 1}天美食搜索完成: {len(food_results)}条结果")
     return {"day_food_info": day_food_info}
+
+
+# ============ 多类别餐饮候选池（骨架阶段） ============
+
+def _parse_amap_poi_list(raw: Any) -> List[Dict[str, Any]]:
+    """从高德工具返回中提取 POI 列表（含 id, location, biz_ext.rating 等）。"""
+    import json as _json
+    import ast
+    data = raw
+    for _ in range(3):
+        if isinstance(data, str):
+            try:
+                data = _json.loads(data)
+                continue
+            except (_json.JSONDecodeError, TypeError):
+                try:
+                    data = ast.literal_eval(data)
+                    continue
+                except (ValueError, SyntaxError):
+                    break
+        if isinstance(data, list) and data and isinstance(data[0], dict) and "text" in data[0]:
+            inner = data[0]["text"]
+            if isinstance(inner, str):
+                data = inner
+                continue
+        break
+
+    pois = []
+    if isinstance(data, dict):
+        pois = data.get("pois") or []
+        if not pois:
+            for v in data.values():
+                if isinstance(v, list) and v and isinstance(v[0], dict):
+                    pois = v
+                    break
+    elif isinstance(data, list):
+        pois = data
+
+    result = []
+    for p in pois or []:
+        if not isinstance(p, dict):
+            continue
+        name = p.get("name") or ""
+        if not name:
+            continue
+        item: Dict[str, Any] = {"name": str(name)}
+        poi_id = p.get("id") or p.get("poi_id")
+        if poi_id:
+            item["poi_id"] = str(poi_id)
+        addr = p.get("address")
+        if addr:
+            item["address"] = str(addr)
+        loc_str = p.get("location")
+        if isinstance(loc_str, str) and "," in loc_str:
+            parts = loc_str.split(",")
+            try:
+                lon = float(parts[0])
+                lat = float(parts[1])
+                if 73 < lon < 136 and 3 < lat < 54:
+                    item["longitude"] = lon
+                    item["latitude"] = lat
+            except (ValueError, IndexError):
+                pass
+        biz = p.get("biz_ext") or p.get("business") or {}
+        if isinstance(biz, dict):
+            rating = biz.get("rating") or biz.get("score")
+            if rating:
+                try:
+                    item["rating"] = float(rating)
+                except (TypeError, ValueError):
+                    pass
+            cost = biz.get("cost")
+            if cost:
+                try:
+                    item["avg_cost"] = int(float(cost))
+                except (TypeError, ValueError):
+                    pass
+            opentime = biz.get("opentime_today") or biz.get("opentime_week")
+            if opentime:
+                item["open_hours"] = str(opentime)
+            tel = biz.get("tel") or p.get("tel")
+            if tel:
+                item["tel"] = str(tel)
+        item["type"] = str(p.get("type") or "")
+        result.append(item)
+    return result
+
+
+def _rank_food_pois(
+    pois: List[Dict[str, Any]],
+    center_lon: Optional[float],
+    center_lat: Optional[float],
+    used_names: set,
+    top_n: int = 3,
+) -> List[Dict[str, Any]]:
+    """按 (有评分, rating desc, 距离 asc) 排序，去重 used_names，取 top_n。"""
+    from ..utils.geo import _haversine_distance
+
+    scored = []
+    for p in pois:
+        name = p.get("name", "").strip()
+        if not name or name in used_names:
+            continue
+        rating = p.get("rating")
+        dist_km = 99.0
+        if center_lon is not None and p.get("longitude") and p.get("latitude"):
+            dist_km = _haversine_distance(center_lat, center_lon, p["latitude"], p["longitude"])
+            p["_dist_km"] = dist_km
+        scored.append((
+            0 if rating is not None else 1,
+            -(rating or 0.0),
+            dist_km,
+            p,
+        ))
+    scored.sort(key=lambda x: (x[0], x[1], x[2]))
+    return [s[3] for s in scored[:top_n]]
+
+
+_DINING_KEYWORDS = {
+    DiningCategory.MAIN: ("餐厅 美食", 6),
+    DiningCategory.SNACK: ("小吃 街边小吃", 4),
+    DiningCategory.DESSERT: ("甜品 蛋糕 茶饮", 4),
+    DiningCategory.CAFE: ("咖啡馆", 4),
+    DiningCategory.LATE_NIGHT: ("夜宵 烧烤 大排档", 4),
+}
+
+
+def _day_center(day_cluster: List[Dict[str, Any]]) -> Optional[tuple]:
+    """计算当日景点经纬度算术平均；无有效坐标返回 None"""
+    coords = [
+        (c["longitude"], c["latitude"])
+        for c in (day_cluster or [])
+        if isinstance(c.get("longitude"), (int, float))
+        and isinstance(c.get("latitude"), (int, float))
+        and 73 < c["longitude"] < 136 and 3 < c["latitude"] < 54
+    ]
+    if not coords:
+        return None
+    return (
+        sum(x for x, _ in coords) / len(coords),
+        sum(y for _, y in coords) / len(coords),
+    )
+
+
+async def _search_dining_category(
+    category: DiningCategory,
+    center: Optional[tuple],
+    city: str,
+) -> List[Dict[str, Any]]:
+    """跑一次 amap POI 搜索；center 为 None 时走城市文本搜索"""
+    keyword, _top_n = _DINING_KEYWORDS[category]
+    service = get_langchain_amap_service()
+
+    if center is not None:
+        tool = await service.get_tool("maps_around_search")
+        if tool is None:
+            return []
+        try:
+            raw = await _invoke_tool_with_retry(
+                tool,
+                {"keywords": keyword, "location": f"{center[0]},{center[1]}", "radius": "1500"},
+                max_retries=1, per_attempt_timeout=15.0,
+            )
+        except Exception as e:
+            print(f" ⚠️ dining[{category.value}] around 失败: {str(e)[:80]}")
+            return []
+    else:
+        tool = await service.get_tool("maps_text_search")
+        if tool is None:
+            return []
+        try:
+            raw = await _invoke_tool_with_retry(
+                tool, {"keywords": keyword, "city": city},
+                max_retries=1, per_attempt_timeout=15.0,
+            )
+        except Exception as e:
+            print(f" ⚠️ dining[{category.value}] text 失败: {str(e)[:80]}")
+            return []
+
+    return _parse_amap_poi_list(raw)
+
+
+def _poi_to_dining_candidate(
+    p: Dict[str, Any], category: DiningCategory, source: str
+) -> Dict[str, Any]:
+    """把 _parse_amap_poi_list 的 POI dict 转成 DiningCandidate dict"""
+    cand: Dict[str, Any] = {
+        "name": p.get("name", ""),
+        "category": category.value,
+        "source": source,
+    }
+    if p.get("address"):
+        cand["address"] = p["address"]
+    if p.get("longitude") and p.get("latitude"):
+        cand["location"] = {"longitude": p["longitude"], "latitude": p["latitude"]}
+    if p.get("rating") is not None:
+        cand["rating"] = round(float(p["rating"]), 2)
+    if p.get("avg_cost") is not None:
+        cand["avg_cost"] = int(p["avg_cost"])
+    if p.get("open_hours"):
+        cand["open_hours"] = p["open_hours"]
+    if p.get("tel"):
+        cand["tel"] = p["tel"]
+    if p.get("poi_id"):
+        cand["poi_id"] = p["poi_id"]
+    cuisine_tag = (p.get("type") or "").split(";")[0].strip()
+    if cuisine_tag:
+        cand["cuisine"] = cuisine_tag
+    return cand
+
+
+async def search_dining_pool_node(state: Dict[str, Any]) -> Dict[str, Any]:
+    """骨架阶段：按 5 类并发搜索每日餐饮候选池，返回 List[DiningPoolDay-shape dict]
+
+    Agent 不再直接决定"午饭去某餐厅"，而是先给用户每类候选，
+    之后由 AI/用户在草稿页组合 —— 候选空间来自真实工具，避免模型编造餐厅。
+    """
+    print("🍴 执行节点: search_dining_pool_node")
+    request = state["request"]
+    clusters_data: List[List[Dict[str, Any]]] = state.get("clusters_data", []) or []
+    travel_days = request.travel_days
+
+    while len(clusters_data) < travel_days:
+        clusters_data.append([])
+
+    pools: List[Dict[str, Any]] = []
+    for day_idx in range(travel_days):
+        day_cluster = clusters_data[day_idx] if day_idx < len(clusters_data) else []
+        center = _day_center(day_cluster)
+        source = "nearby" if center is not None else "popular"
+
+        tasks = [
+            _search_dining_category(cat, center, request.city)
+            for cat in DiningCategory
+        ]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        pool: Dict[str, List[Dict[str, Any]]] = {}
+        for cat, res in zip(DiningCategory, results):
+            if isinstance(res, Exception):
+                print(f" ⚠️ dining[{cat.value}] 异常: {res}")
+                pool[cat.value] = []
+                continue
+            _, top_n = _DINING_KEYWORDS[cat]
+            ranked = _rank_food_pois(res, None, None, set(), top_n=top_n)
+            pool[cat.value] = [
+                _poi_to_dining_candidate(p, cat, source) for p in ranked
+            ]
+        pools.append(pool)
+        total = sum(len(v) for v in pool.values())
+        print(f" ✅ 第{day_idx + 1}天餐饮候选池: 共 {total} 家")
+
+    return {"dining_pool": pools}

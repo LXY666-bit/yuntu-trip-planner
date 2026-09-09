@@ -1,6 +1,7 @@
 """草稿（骨架/详细分离）API 路由"""
 import asyncio
 import json
+import re
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
@@ -21,6 +22,15 @@ from ...services.llm_service import get_llm
 from ...models.schemas import PlanFromSelectionsRequest
 
 router = APIRouter(prefix="/trip/draft", tags=["trip_draft"])
+
+
+def _parse_ticket_price(value) -> int:
+    if value is None:
+        return 0
+    if isinstance(value, (int, float)):
+        return int(value)
+    match = re.search(r"\d+", str(value))
+    return int(match.group()) if match else 0
 
 
 @router.post(
@@ -93,8 +103,18 @@ def _load_payload(record) -> TripDraftPayload:
             if c.get("longitude") and c.get("latitude"):
                 loc = Location(longitude=c["longitude"], latitude=c["latitude"])
             attractions.append(Attraction(
-                name=c.get("name", ""), address=c.get("address", ""),
-                visit_duration=120, description="", location=loc,
+                name=c.get("name", ""),
+                address=c.get("address", ""),
+                visit_duration=c.get("visit_minutes") or c.get("visit_duration") or 120,
+                description=c.get("description") or "",
+                category=c.get("category") or "景点",
+                rating=c.get("rating"),
+                poi_id=c.get("poi_id") or "",
+                image_url=c.get("image_url"),
+                ticket_price=_parse_ticket_price(c.get("ticket_price")),
+                open_hours=c.get("open_hours"),
+                tel=c.get("tel"),
+                location=loc,
             ))
         hotel = None
         if idx < len(hotels_by_day) and hotels_by_day[idx]:
@@ -116,6 +136,7 @@ def _load_payload(record) -> TripDraftPayload:
             attraction_names=ds.attraction_names if ds else [],
             attractions=attractions, hotel=hotel,
             dining_pool=pool, weather=weather_obj,
+            day_start_time=request.default_day_start_time,
         ))
 
     days_detail = []
@@ -230,12 +251,20 @@ async def recompute_day(draft_id: str, day_index: int, edit: DayEditRequest):
             mid = max(len(final_order) // 2 - 1, 0)
             for m in final_meals:
                 m.setdefault("insert_after", final_order[mid] if final_order else "")
+    final_day_start_time = edit.day_start_time
+    if final_day_start_time is None:
+        final_day_start_time = (
+            current.day_start_time if current and current.day_start_time
+            else ctx.day_start_time
+        )
 
     overrides_dict = {}
     if final_order is not None:
         overrides_dict["attractions_order"] = final_order
     if final_meals is not None:
         overrides_dict["meals"] = final_meals
+    if final_day_start_time is not None:
+        overrides_dict["day_start_time"] = final_day_start_time
 
     request = TripRequest.model_validate_json(record.request_json)
     detail = rule_assemble_day_timeline(ctx, overrides=overrides_dict or None)

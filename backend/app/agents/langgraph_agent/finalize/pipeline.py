@@ -1,5 +1,6 @@
 """定稿流水线：草稿 → TripPlan → 全局综合 + 偏好提取 → trip_history"""
 import json
+import re
 from typing import Tuple, Optional
 
 from ....models.schemas import (
@@ -28,6 +29,19 @@ async def _run_global_synthesizer(trip_plan: TripPlan, free_text: str) -> Tuple[
     except Exception as e:
         print(f"⚠️ global_synthesizer 失败，使用兜底: {e}")
         return "", "", _generate_weather_summary_fallback(trip_plan)
+
+
+def _parse_ticket_price(val) -> int:
+    """把发现页门票字段转成 int 元。
+
+    "60"->60, "免费"->0, "￥80起"->80, None/""/无数字 ->0, 数字原样取整。
+    """
+    if val is None:
+        return 0
+    if isinstance(val, (int, float)):
+        return int(val)
+    m = re.search(r"\d+", str(val))
+    return int(m.group()) if m else 0
 
 
 def _make_pseudo_request(plan: TripPlan, free_text: str):
@@ -61,6 +75,8 @@ def _day_detail_to_day_plan(detail: DayDetail, transportation: str, accommodatio
         attractions=detail.attractions,
         meals=detail.meals,
         route_segments=detail.route_segments,
+        timeline_order=detail.timeline_order,
+        day_start_time=detail.day_start_time,
     )
 
 
@@ -71,6 +87,7 @@ def _build_day_context(
     hotels_by_day: list,
     dining_pool: list,
     weather_info: list,
+    default_day_start_time: str,
 ) -> DraftDayContext:
     day_skeleton = macro_plan.days[day_idx]
     cluster = clusters_data[day_idx] if day_idx < len(clusters_data) else []
@@ -81,9 +98,16 @@ def _build_day_context(
             loc = Location(longitude=c["longitude"], latitude=c["latitude"])
         attractions.append(Attraction(
             name=c["name"],
-            address=c.get("address", ""),
-            visit_duration=120,
-            description="",
+            address=c.get("address") or "",
+            visit_duration=c.get("visit_minutes") or 120,
+            description=c.get("description") or "",
+            category=c.get("category") or "景点",
+            rating=c.get("rating"),
+            ticket_price=_parse_ticket_price(c.get("ticket_price")),
+            image_url=c.get("image_url"),
+            poi_id=c.get("poi_id") or "",
+            open_hours=c.get("open_hours"),
+            tel=c.get("tel"),
             location=loc,
         ))
     hotel: Optional[Hotel] = None
@@ -112,6 +136,7 @@ def _build_day_context(
         hotel=hotel,
         dining_pool=pool,
         weather=weather_obj,
+        day_start_time=default_day_start_time,
     )
 
 
@@ -144,7 +169,8 @@ async def finalize_draft(draft_id: str, *, user_id: str) -> Tuple[TripPlan, int]
                 detail.day_budget = compute_day_budget(detail)
         else:
             ctx = _build_day_context(
-                idx, macro_plan, clusters_data, hotels_by_day, dining_pool, weather_info
+                idx, macro_plan, clusters_data, hotels_by_day, dining_pool,
+                weather_info, request.default_day_start_time,
             )
             detail = rule_assemble_day_timeline(ctx, overrides=None)
             detail.route_segments = await compute_day_route(

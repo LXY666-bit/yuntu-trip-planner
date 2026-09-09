@@ -80,16 +80,26 @@ class AIGoHotelService(BaseMCPService):
         arguments: Dict[str, Any] = {"place": place, "placeType": place_type}
         if origin_query:
             arguments["originQuery"] = origin_query
+
+        # 新版 MCP Schema: 日期/人数收进 checkInParam，筛选条件收进 filterOptions
+        check_in_param: Dict[str, Any] = {}
         if check_in:
-            arguments["checkIn"] = check_in
+            check_in_param["checkInDate"] = check_in
         if stay_nights is not None:
-            arguments["stayNights"] = stay_nights
-        if star_ratings:
-            arguments["starRatings"] = star_ratings
+            check_in_param["stayNights"] = stay_nights
         if adult_count is not None:
-            arguments["adultCount"] = adult_count
+            check_in_param["adultCount"] = adult_count
+        if check_in_param:
+            arguments["checkInParam"] = check_in_param
+
+        filter_options: Dict[str, Any] = {}
+        if star_ratings:
+            filter_options["starRatings"] = star_ratings
         if distance_in_meter is not None:
-            arguments["distanceInMeter"] = distance_in_meter
+            filter_options["distanceInMeter"] = distance_in_meter
+        if filter_options:
+            arguments["filterOptions"] = filter_options
+
         if size is not None:
             arguments["size"] = size
         if with_hotel_amenities:
@@ -100,9 +110,26 @@ class AIGoHotelService(BaseMCPService):
         result = await self._call_tool("SearchHotels", arguments, timeout=45.0)
         return self._parse_result(result)
 
-    async def get_hotel_detail(self, hotel_id: str) -> Any:
-        """获取酒店详情"""
-        result = await self._call_tool("GetHotelDetail", {"hotelId": hotel_id}, timeout=30.0)
+    async def get_hotel_detail(
+        self,
+        hotel_id: int | str,
+        check_in: Optional[str] = None,
+        stay_nights: Optional[int] = None,
+        adult_count: Optional[int] = None,
+    ) -> Any:
+        """获取酒店详情（新 Schema: 日期收进 dateParam，人数收进 occupancyParam）"""
+        arguments: Dict[str, Any] = {"hotelId": hotel_id}
+        date_param: Dict[str, Any] = {}
+        if check_in:
+            date_param["checkInDate"] = check_in
+        if stay_nights is not None:
+            date_param["stayNights"] = stay_nights
+        if date_param:
+            arguments["dateParam"] = date_param
+        if adult_count is not None:
+            arguments["occupancyParam"] = {"adultCount": adult_count}
+
+        result = await self._call_tool("GetHotelDetail", arguments, timeout=30.0)
         return self._parse_result(result)
 
 

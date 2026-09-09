@@ -1,7 +1,8 @@
 """数据模型定义"""
 
+from enum import Enum
 from typing import Dict, List, Optional, Union, Any
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from datetime import date
 
 
@@ -34,6 +35,10 @@ class TripRequest(BaseModel):
     budget: Optional[int] = Field(default=None, description="总预算上限(元)，为空表示不限预算", example=5000)
     companions: Optional[CompanionInfo] = Field(default=None, description="出行同伴信息")
     language: Optional[str] = Field(default="zh", description="输出语言(zh/en/ja)", example="en")
+    default_day_start_time: str = Field(
+        default="08:00",
+        description="每日行程默认开始时间 HH:mm，草稿中的单日设置可覆盖",
+    )
 
     @field_validator("travel_days", mode="before")
     @classmethod
@@ -54,16 +59,17 @@ class TripRequest(BaseModel):
                 pass
         return v
 
-    @field_validator("cities", mode="before")
-    @classmethod
-    def normalize_cities(cls, v, info):
-        """兼容处理: 如果只填了 city 没填 cities, 自动转换"""
-        if not v:
-            city = info.data.get("city", "")
-            travel_days = info.data.get("travel_days", 0)
-            if city:
-                return [CityStay(city=city, days=travel_days)]
-        return v
+    @model_validator(mode="after")
+    def normalize_cities(self):
+        """兼容处理: 如果只填了 city 没填 cities, 自动转换。
+
+        用 model_validator(mode="after") 保证 travel_days 已经过日期修正，
+        避免 field_validator(mode="before") 阶段 travel_days 尚未验证导致
+        CityStay(days=0) 校验失败的隐患。
+        """
+        if not self.cities and self.city:
+            self.cities = [CityStay(city=self.city, days=self.travel_days)]
+        return self
 
     class Config:
         json_schema_extra = {
@@ -129,11 +135,51 @@ class Attraction(BaseModel):
     ticket_price: int = Field(default=0, description="门票价格(元)")
     reservation_required: Optional[bool] = Field(default=False, description="是否需要提前预约")
     reservation_tips: Optional[str] = Field(default="", description="预约提示信息")
+    open_hours: Optional[str] = Field(default=None, description="开放时间")
+    tel: Optional[str] = Field(default=None, description="联系电话")
+
+
+class DiningCategory(str, Enum):
+    """用餐类别（多类别候选池）"""
+    MAIN = "main"           # 正餐
+    SNACK = "snack"         # 小吃
+    DESSERT = "dessert"     # 甜品
+    CAFE = "cafe"           # 咖啡
+    LATE_NIGHT = "late_night"  # 夜宵
+
+
+class DiningCandidate(BaseModel):
+    """候选池中的单个餐饮项"""
+    name: str = Field(..., description="餐厅名称")
+    address: Optional[str] = Field(default=None, description="地址")
+    location: Optional[Location] = Field(default=None, description="坐标")
+    category: DiningCategory = Field(..., description="餐饮类别")
+    cuisine: Optional[str] = Field(default=None, description="菜系")
+    rating: Optional[float] = Field(default=None, description="评分")
+    avg_cost: Optional[int] = Field(default=None, description="人均消费")
+    distance: Optional[str] = Field(default=None, description="距景点中心距离")
+    open_hours: Optional[str] = Field(default=None, description="营业时间")
+    tel: Optional[str] = Field(default=None, description="联系电话")
+    poi_id: Optional[str] = Field(default=None, description="POI ID")
+    source: str = Field(default="nearby", description="来源: nearby/popular/user_custom")
+
+
+class DiningPoolDay(BaseModel):
+    """每日多类别餐饮候选池"""
+    main: List[DiningCandidate] = Field(default_factory=list)
+    snack: List[DiningCandidate] = Field(default_factory=list)
+    dessert: List[DiningCandidate] = Field(default_factory=list)
+    cafe: List[DiningCandidate] = Field(default_factory=list)
+    late_night: List[DiningCandidate] = Field(default_factory=list)
 
 
 class Meal(BaseModel):
     """餐饮信息"""
     type: str = Field(..., description="餐饮类型: breakfast/lunch/dinner/snack")
+    category: Optional[DiningCategory] = Field(
+        default=None,
+        description="餐饮类别（新版本主用此字段，type 保留向后兼容）"
+    )
     name: str = Field(..., description="餐厅名称")
     address: Optional[str] = Field(default=None, description="餐厅地址")
     location: Optional[Location] = Field(default=None, description="经纬度坐标")
@@ -145,6 +191,8 @@ class Meal(BaseModel):
     poi_id: Optional[str] = Field(default=None, description="POI ID")
     source: Optional[str] = Field(default=None, description="来源: nearby=景点周边, popular=城市热门")
     estimated_cost: int = Field(default=0, description="预估费用(元)")
+    open_hours: Optional[str] = Field(default=None, description="营业时间")
+    tel: Optional[str] = Field(default=None, description="联系电话")
 
 
 class Hotel(BaseModel):
@@ -168,6 +216,7 @@ class Hotel(BaseModel):
     image_url: Optional[str] = Field(default=None, description="酒店主图URL")
     detail_url: Optional[str] = Field(default=None, description="酒店详情页链接")
     distance_in_meters: Optional[int] = Field(default=None, description="距中心点距离(米)")
+    hotel_id: Optional[Union[int, str]] = Field(default=None, description="AIGoHotel 酒店标识")
 
 
 class RouteSegment(BaseModel):
@@ -194,6 +243,14 @@ class DayPlan(BaseModel):
     attractions: List[Attraction] = Field(default=[], description="景点列表")
     meals: List[Meal] = Field(default=[], description="餐饮列表")
     route_segments: List[RouteSegment] = Field(default=[], description="路线段列表")
+    timeline_order: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="单日结果时间轴顺序",
+    )
+    day_start_time: Optional[str] = Field(
+        default=None,
+        description="单日行程开始时间 HH:mm",
+    )
 
 
 class WeatherInfo(BaseModel):
@@ -344,6 +401,9 @@ class DiscoveredAttraction(BaseModel):
     image_url: Optional[str] = Field(default=None, description="图片URL")
     location: Optional[Location] = Field(default=None, description="经纬度坐标")
     poi_id: Optional[str] = Field(default=None, description="高德POI ID")
+    visit_minutes: Optional[int] = Field(default=None, description="预估游玩时长(分钟)")
+    open_hours: Optional[str] = Field(default=None, description="开放时间")
+    tel: Optional[str] = Field(default=None, description="联系电话")
 
 
 class ManualSearchRequest(BaseModel):
@@ -392,4 +452,116 @@ class ErrorResponse(BaseModel):
     success: bool = Field(default=False, description="是否成功")
     message: str = Field(..., description="错误消息")
     error_code: Optional[str] = Field(default=None, description="错误代码")
+
+
+# ============ 骨架草稿模型 ============
+
+class DraftDayContext(BaseModel):
+    """骨架阶段每日上下文"""
+    day_index: int = Field(..., description="第几天(从0开始)")
+    date: str = Field(..., description="日期 YYYY-MM-DD")
+    attraction_names: List[str] = Field(default_factory=list)
+    attractions: List[Attraction] = Field(default_factory=list)
+    hotel: Optional[Hotel] = Field(default=None)
+    dining_pool: DiningPoolDay = Field(default_factory=DiningPoolDay)
+    weather: Optional[WeatherInfo] = Field(default=None)
+    day_start_time: Optional[str] = Field(default=None)
+
+
+class DayDetail(BaseModel):
+    """详细阶段产物（每日装配后的完整时间轴）"""
+    day_index: int
+    date: str
+    description: str = Field(default="", description="LLM 写的当日叙述")
+    attractions: List[Attraction] = Field(default_factory=list)
+    hotel: Optional[Hotel] = Field(default=None)
+    meals: List[Meal] = Field(default_factory=list)
+    route_segments: List[RouteSegment] = Field(default_factory=list)
+    day_start_time: Optional[str] = Field(default=None)
+    timeline_order: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="[{kind:'attraction|meal|hotel', ref_name:'...'}]"
+    )
+    day_budget: Optional[Budget] = Field(default=None, description="当日预算")
+    is_assembled: bool = Field(default=False)
+
+
+class TripDraftPayload(BaseModel):
+    """草稿完整载荷（GET /draft/{id} 返回）"""
+    draft_id: str
+    status: str = Field(..., description="skeleton/assembling/finalized/expired")
+    request: TripRequest
+    city: str
+    macro_plan: MacroPlan
+    days: List[DraftDayContext]
+    days_detail: List[Optional[DayDetail]]
+    weather_info: List[WeatherInfo] = Field(default_factory=list)
+    created_at: str
+    updated_at: str
+
+
+class DayEditRequest(BaseModel):
+    """所有用户编辑端点共享的请求模型"""
+    attractions_order: Optional[List[str]] = Field(
+        default=None,
+        description="按用户拖拽后的景点名顺序；不传则保留当前 day_detail.attractions 顺序"
+    )
+    meals: Optional[List[Dict[str, Any]]] = Field(
+        default=None,
+        description="用户当前勾选的餐饮（完整状态，不是 patch）；不传则保留 day_detail.meals；传 [] 则清空"
+    )
+    day_start_time: Optional[str] = Field(
+        default=None,
+        description="单日行程开始时间 HH:mm；不传则沿用现有或全程默认值",
+    )
+
+
+class AIRearrangeRequest(BaseModel):
+    """AI 重新安排请求"""
+    hint: Optional[str] = Field(default=None, description="给 LLM 的额外提示")
+
+
+class FinalizeResponse(BaseModel):
+    """SSE 流的 complete 事件载荷"""
+    type: str = Field(default="complete")
+    trip_id: int
+    trip_plan: TripPlan
+
+
+# ============ 智能分配 / AI 选景 ============
+
+class DayDurationInfo(BaseModel):
+    """单日估算时长（用于智能分配预览）"""
+    day_index: int = Field(..., description="第几天，从0开始")
+    total_minutes: int = Field(..., description="当日所有景点估算游玩总时长(分钟)")
+    warning: Optional[str] = Field(default=None, description="提示文案，如'当天偏紧'")
+
+
+class PreviewDayAssignmentRequest(BaseModel):
+    """智能日程分配预览请求"""
+    selected_attractions: List[DiscoveredAttraction] = Field(..., description="用户选中的景点列表")
+    travel_days: int = Field(..., ge=1, description="旅行天数")
+
+
+class PreviewDayAssignmentResponse(BaseModel):
+    """智能日程分配预览响应"""
+    day_assignments: List[List[DiscoveredAttraction]] = Field(..., description="每天的景点分配（每个景点带 visit_minutes）")
+    day_durations: List[DayDurationInfo] = Field(..., description="每天的估算时长")
+
+
+class AISelectRequest(BaseModel):
+    """AI 从当前景点池选景请求"""
+    destination: str = Field(..., min_length=1, description="目的地城市")
+    days: int = Field(..., ge=1, le=30, description="行程天数")
+    attractions: List[Dict[str, Any]] = Field(default_factory=list, description="当前景点池")
+    preferences: Optional[Dict[str, Any]] = Field(default=None, description="可选偏好")
+
+
+class AISelectResponse(BaseModel):
+    """AI 从当前景点池选景响应"""
+    must_ids: List[str] = Field(default_factory=list, description="必去景点的 poi_id 列表")
+    optional_ids: List[str] = Field(default_factory=list, description="可选景点的 poi_id 列表")
+    reasons: Dict[str, str] = Field(default_factory=dict, description="poi_id 到推荐理由的映射")
+    tags: Dict[str, List[str]] = Field(default_factory=dict, description="poi_id 到推荐标签列表的映射")
+    summary: Optional[str] = Field(default=None, description="本次 AI 选景的总体说明")
 

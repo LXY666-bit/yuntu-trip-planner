@@ -17,6 +17,7 @@
 """
 
 import json
+import logging
 from fastapi import APIRouter, HTTPException
 from .sse_utils import make_sse_response, sse_event, sse_error
 from ...models.schemas import (
@@ -27,13 +28,28 @@ from ...models.schemas import (
     UserPreference,
     ManualSearchRequest,
     PlanFromSelectionsRequest,
+    AISelectRequest,
+    AISelectResponse,
+    PreviewDayAssignmentRequest,
+    PreviewDayAssignmentResponse,
+    DayDurationInfo,
+    DiscoveredAttraction,
 )
 from ...agents.langgraph_agent import get_trip_planner_agent, NonRetryableError
+from ...agents.langgraph_agent.utils.duration import estimate_durations_batch
+from ...agents.langgraph_agent.utils.geo import (
+    _cluster_attractions_by_proximity,
+    _rebalance_by_duration,
+)
+from ...agents.langgraph_agent.utils.strategy_extract import pick_attractions_from_pool
 from ...services.langchain_amap_tools import get_langchain_amap_service
 from ...services.preferences_service import load_preferences, save_preferences, delete_preferences
 from ...services.knowledge_graph_service import build_knowledge_graph
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/trip", tags=["旅行规划"])
+discover_router = APIRouter(prefix="/discover", tags=["景点发现"])
 
 
 def _classify_http_error(e: Exception) -> int:
@@ -233,6 +249,96 @@ async def plan_from_selections_stream(req: PlanFromSelectionsRequest):
             yield sse_error(f"规划失败: {str(e)}")
 
     return make_sse_response(event_generator)
+
+
+@router.post(
+    "/plan/preview-day-assignment",
+    response_model=PreviewDayAssignmentResponse,
+    summary="智能日程分配预览",
+    description="LLM 批量估时 + 地理聚类，返回每天的景点分配与估时（不持久化）"
+)
+async def preview_day_assignment(req: PreviewDayAssignmentRequest):
+    selected = [a.model_dump() for a in req.selected_attractions]
+
+    if not selected:
+        return PreviewDayAssignmentResponse(day_assignments=[], day_durations=[])
+
+    # 1. LLM 批量估时（失败自动降级到类别表）
+    durations = await estimate_durations_batch(selected)
+
+    # 2. 几何聚类（仅对有坐标的景点）
+    geo_attrs = []
+    no_coord_attrs = []
+    for attr in selected:
+        loc = attr.get("location") or {}
+        lon = loc.get("longitude")
+        lat = loc.get("latitude")
+        if lon and lat:
+            geo_attrs.append({"name": attr["name"], "longitude": lon, "latitude": lat})
+        else:
+            no_coord_attrs.append(attr)
+
+    if geo_attrs:
+        clusters = _cluster_attractions_by_proximity(geo_attrs, req.travel_days)
+        clusters = _rebalance_by_duration(clusters, durations, max_minutes=480)
+    else:
+        # 无坐标兜底：均分
+        from math import ceil
+        per_day = max(ceil(len(selected) / req.travel_days), 1)
+        clusters = []
+        for d in range(req.travel_days):
+            clusters.append([{"name": a["name"]} for a in selected[d * per_day:(d + 1) * per_day]])
+        no_coord_attrs = []
+
+    # 把无坐标景点平均派发到当前天数最少的 cluster
+    for attr in no_coord_attrs:
+        shortest = min(range(len(clusters)), key=lambda i: len(clusters[i])) if clusters else 0
+        if not clusters:
+            clusters = [[] for _ in range(req.travel_days)]
+        clusters[shortest].append({"name": attr["name"]})
+
+    # 3. 还原成完整 DiscoveredAttraction（带 visit_minutes）
+    name_to_attr = {a["name"]: a for a in selected}
+    day_assignments = []
+    day_durations = []
+    for idx, cluster in enumerate(clusters):
+        day_attrs = []
+        total = 0
+        for c in cluster:
+            full = dict(name_to_attr.get(c["name"], {"name": c["name"]}))
+            mins = durations.get(c["name"], 90)
+            full["visit_minutes"] = mins
+            total += mins
+            day_attrs.append(DiscoveredAttraction(**full))
+        warning = "当天偏紧" if total > 480 else None
+        day_assignments.append(day_attrs)
+        day_durations.append(DayDurationInfo(day_index=idx, total_minutes=total, warning=warning))
+
+    return PreviewDayAssignmentResponse(
+        day_assignments=day_assignments,
+        day_durations=day_durations,
+    )
+
+
+@discover_router.post(
+    "/ai_select",
+    response_model=AISelectResponse,
+    summary="AI 从当前景点池选景",
+    description="基于当前景点池、用户偏好、评分和预计游玩时长挑选必去与备选景点。"
+                "不再额外搜索攻略，直接在池内挑选；LLM 失败时按评分兜底。"
+)
+async def ai_select_attractions(req: AISelectRequest):
+    try:
+        result = await pick_attractions_from_pool(
+            destination=req.destination,
+            days=req.days,
+            pool=req.attractions,
+            preferences=req.preferences,
+        )
+        return AISelectResponse(**result)
+    except Exception:
+        logger.exception("ai_select_attractions failed")
+        raise HTTPException(status_code=500, detail="AI 选景失败，请稍后重试")
 
 
 @router.get(

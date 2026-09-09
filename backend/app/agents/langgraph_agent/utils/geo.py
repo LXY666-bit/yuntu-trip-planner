@@ -198,6 +198,10 @@ def _rebalance_by_duration(
                 continue
             t_lat, t_lon = _cluster_centroid(target_cluster)
             geo_d = _haversine_distance(t_lat, t_lon, far_attr["latitude"], far_attr["longitude"])
+            # 不能因为别的天有余量就拆散紧凑地理组：
+            # 只有目标日质心比源日质心更接近该景点时才允许移动
+            if geo_d >= far_dist:
+                continue
             score = totals[j] + geo_d * 10  # 低 total + 地理接近 优先
             if score < best_score:
                 best_score = score

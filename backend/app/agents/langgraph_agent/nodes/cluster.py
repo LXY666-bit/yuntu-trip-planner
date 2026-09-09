@@ -1,5 +1,5 @@
 import re
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 from langchain_core.messages import HumanMessage
 
@@ -9,12 +9,17 @@ from ..utils.geo import (
     _extract_coordinates_regex,
     _haversine_distance,
     _cluster_attractions_by_proximity,
+    _cluster_centroid,
+    _cluster_total_minutes,
+    _rebalance_by_duration,
     _order_cluster_by_tsp,
     _select_top_attractions,
     _format_cluster_info,
 )
+from ..utils.duration import _fallback_durations
 from ..utils.parsing import _extract_json_array, _extract_poi_names
 from ..nodes.search import _extract_must_visit_attractions, analyze_free_text
+from ....services.attractions_cache_service import get_attractions_cache_service
 from ....services.langchain_amap_tools import get_langchain_amap_service
 from ....services.llm_service import get_llm
 
@@ -379,7 +384,14 @@ async def cluster_attractions_node(state: TripPlannerState) -> Dict[str, Any]:
 
 
 async def cluster_from_selections_node(state: TripPlannerState) -> Dict[str, Any]:
-    """基于用户选择的景点进行聚类（结构化输入，已有坐标）"""
+    """基于用户选择的景点进行聚类（结构化输入，已有坐标）
+
+    升级点：
+    - _selection_to_cluster_dict 保留全部展示字段（评分/门票/图片/open_hours 等），
+      避免 Discover 页 → Cluster → Draft → Finalize 链路元数据丢失
+    - 缺 visit_minutes 时用 LLM 批量估算，再做"地理 + 游玩时长"联合分日
+    - 用景点缓存补全缺失字段
+    """
     print("🗺️ 执行节点: cluster_from_selections_node")
 
     selected_attractions = state.get("user_selected_attractions", [])
@@ -387,56 +399,50 @@ async def cluster_from_selections_node(state: TripPlannerState) -> Dict[str, Any
     request = state["request"]
 
     if not selected_attractions:
-        return {"cluster_info": "未选择任何景点，无法生成行程。"}
+        return {"cluster_info": "未选择任何景点，无法生成行程。", "clusters_data": []}
+
+    selected_attractions = await _backfill_selected_attractions_from_cache(request.city, selected_attractions)
+    if day_assignments:
+        day_assignments = [
+            await _backfill_selected_attractions_from_cache(request.city, day_attrs)
+            for day_attrs in day_assignments
+        ]
 
     if day_assignments:
         print(f"📊 使用用户自定义日程分配: {len(day_assignments)} 天")
         clusters = []
         for day_attrs in day_assignments:
-            day_cluster = []
-            for attr in day_attrs:
-                loc = attr.get("location")
-                if loc:
-                    day_cluster.append({
-                        "name": attr["name"],
-                        "longitude": loc.get("longitude", 0),
-                        "latitude": loc.get("latitude", 0),
-                    })
-                else:
-                    day_cluster.append({"name": attr["name"], "longitude": 0, "latitude": 0})
-            clusters.append(day_cluster)
+            clusters.append([_selection_to_cluster_dict(attr) for attr in day_attrs])
     else:
         valid_attractions = []
         for attr in selected_attractions:
             loc = attr.get("location")
             if loc and loc.get("longitude") and loc.get("latitude"):
-                valid_attractions.append({
-                    "name": attr["name"],
-                    "longitude": loc["longitude"],
-                    "latitude": loc["latitude"],
-                })
+                valid_attractions.append(_selection_to_cluster_dict(attr))
 
         if not valid_attractions:
             names = [a["name"] for a in selected_attractions]
             simple_info = "\n".join([f"第{i+1}天: {name}" for i, name in enumerate(names)])
-            return {"cluster_info": f"景点坐标缺失，按选择顺序分配:\n{simple_info}"}
-
-        n = len(valid_attractions)
-        dist_matrix = [[0.0] * n for _ in range(n)]
-        for i in range(n):
-            for j in range(i + 1, n):
-                d = _haversine_distance(
-                    valid_attractions[i]["latitude"], valid_attractions[i]["longitude"],
-                    valid_attractions[j]["latitude"], valid_attractions[j]["longitude"]
-                )
-                dist_matrix[i][j] = d
-                dist_matrix[j][i] = d
+            return {"cluster_info": f"景点坐标缺失，按选择顺序分配:\n{simple_info}", "clusters_data": []}
 
         clusters = _cluster_attractions_by_proximity(valid_attractions, request.travel_days)
         for i in range(len(clusters)):
             clusters[i] = _order_cluster_by_tsp(clusters[i])
 
-        valid_attractions_for_format = valid_attractions
+    # 时长感知再平衡：优先用发现阶段带出的 visit_minutes，
+    # 缺失的用类别时长表静态兜底（不做 LLM 调用，保持骨架阶段快速确定；
+    # 需要 LLM 精估时走 /plan/preview-day-assignment 端点）
+    from ..utils.duration import _fallback_durations
+    all_cluster_attrs = [c for cl in clusters for c in cl]
+    fallback = _fallback_durations([dict(a) for a in all_cluster_attrs])
+    durations: Dict[str, int] = {}
+    for a in all_cluster_attrs:
+        name = a.get("name", "")
+        mins = a.get("visit_minutes") or fallback.get(name)
+        if mins:
+            durations[name] = int(mins)
+    if durations:
+        clusters = _rebalance_by_duration(clusters, durations, max_minutes=480)
 
     all_attrs = []
     for c in clusters:
@@ -472,6 +478,8 @@ async def cluster_from_selections_node(state: TripPlannerState) -> Dict[str, Any
             parts.append(f"门票: {attr['ticket_price']}")
         if attr.get("description"):
             parts.append(f"简介: {attr['description']}")
+        if attr.get("visit_minutes"):
+            parts.append(f"预计游玩: {attr['visit_minutes']}min")
         attractions_info_parts.append(" | ".join(parts))
 
     attractions_info = "\n".join(attractions_info_parts)
@@ -479,4 +487,57 @@ async def cluster_from_selections_node(state: TripPlannerState) -> Dict[str, Any
     final_count = sum(len(c) for c in clusters)
     print(f"✅ 用户选择景点聚类完成: {len(selected_attractions)} 个选中 → {final_count} 个分为 {len(clusters)} 组")
 
-    return {"cluster_info": cluster_info, "attractions_info": attractions_info}
+    return {"cluster_info": cluster_info, "attractions_info": attractions_info, "clusters_data": clusters}
+
+
+def _selection_to_cluster_dict(attr: dict) -> dict:
+    """把发现页已选景点（DiscoveredAttraction 形状的 dict）映射成下游用的
+    cluster dict，保留全部展示字段（不再只留 name + 坐标）。
+
+    坐标从 location 取，缺失则 0（沿用旧行为，便于无坐标兜底）。
+    """
+    loc = attr.get("location") or {}
+    return {
+        "name": attr.get("name", ""),
+        "longitude": loc.get("longitude", 0),
+        "latitude": loc.get("latitude", 0),
+        "address": attr.get("address", ""),
+        "category": attr.get("category"),
+        "rating": attr.get("rating"),
+        "ticket_price": attr.get("ticket_price"),
+        "description": attr.get("description", ""),
+        "poi_id": attr.get("poi_id"),
+        "visit_minutes": attr.get("visit_minutes"),
+        "image_url": attr.get("image_url"),
+        "open_hours": attr.get("open_hours"),
+        "tel": attr.get("tel"),
+    }
+
+
+def _merge_cached_attraction_fields(attr: dict, cached) -> dict:
+    enriched = dict(attr)
+    for field in ("address", "category", "rating", "ticket_price", "description", "poi_id", "image_url", "open_hours", "tel"):
+        value = getattr(cached, field, None)
+        if value and not enriched.get(field):
+            enriched[field] = value
+    if not enriched.get("location") and getattr(cached, "longitude", None) and getattr(cached, "latitude", None):
+        enriched["location"] = {"longitude": cached.longitude, "latitude": cached.latitude}
+    return enriched
+
+
+async def _backfill_selected_attractions_from_cache(city: str, attrs: List[dict]) -> List[dict]:
+    """用本地景点缓存补全选中景点缺失的展示字段"""
+    service = get_attractions_cache_service()
+    enriched: List[dict] = []
+    for attr in attrs:
+        name = attr.get("name")
+        if not name:
+            enriched.append(attr)
+            continue
+        try:
+            cached = await service.find_by_name(city, name)
+        except Exception as e:
+            print(f"  ⚠️ 景点缓存补全失败 [{name}]: {str(e)[:100]}")
+            cached = None
+        enriched.append(_merge_cached_attraction_fields(attr, cached) if cached else attr)
+    return enriched

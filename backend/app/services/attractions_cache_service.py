@@ -31,6 +31,8 @@ class CachedAttraction:
     poi_id: Optional[str] = None
     amap_type: Optional[str] = None
     description: Optional[str] = None
+    open_hours: Optional[str] = None
+    tel: Optional[str] = None
 
 
 AMAP_SEARCH_KEYWORDS = ["景点", "公园", "博物馆", "古迹", "广场", "寺庙", "购物中心", "美食街"]
@@ -136,6 +138,31 @@ def _extract_biz_ext_value(poi: dict[str, Any], key: str) -> Any:
     return poi.get(key)
 
 
+def _clean_optional_str(value: Any) -> Optional[str]:
+    if value in (None, "", [], {}):
+        return None
+    return str(value).strip() or None
+
+
+def _extract_open_hours(poi: dict[str, Any]) -> Optional[str]:
+    return (
+        _clean_optional_str(_extract_biz_ext_value(poi, "opentime_today"))
+        or _clean_optional_str(_extract_biz_ext_value(poi, "opentime_week"))
+        or _clean_optional_str(_extract_biz_ext_value(poi, "open_time"))
+        or _clean_optional_str(_extract_biz_ext_value(poi, "opentime2"))
+        or _clean_optional_str(_extract_biz_ext_value(poi, "opentime"))
+        or _clean_optional_str(poi.get("open_hours"))
+    )
+
+
+def _extract_tel(poi: dict[str, Any]) -> Optional[str]:
+    return (
+        _clean_optional_str(_extract_biz_ext_value(poi, "tel"))
+        or _clean_optional_str(poi.get("telephone"))
+        or _clean_optional_str(poi.get("phone"))
+    )
+
+
 def _normalize_poi(city: str, poi: dict[str, Any]) -> Optional[dict[str, Any]]:
     name = str(poi.get("name") or "").strip()
     if not name:
@@ -169,6 +196,8 @@ def _normalize_poi(city: str, poi: dict[str, Any]) -> Optional[dict[str, Any]]:
         "category": _normalize_category(amap_type, typecode),
         "rating": rating,
         "ticket_price": ticket_price,
+        "open_hours": _extract_open_hours(poi),
+        "tel": _extract_tel(poi),
         "image_url": _extract_photo(poi),
         "last_updated": datetime.utcnow(),
     }
@@ -220,6 +249,16 @@ def _extract_pois_from_result(result: Any) -> list[dict[str, Any]]:
 
 
 def _extract_detail_from_result(result: Any) -> Optional[dict[str, Any]]:
+    def normalize_detail(detail: dict[str, Any]) -> dict[str, Any]:
+        out = dict(detail)
+        open_hours = _extract_open_hours(out)
+        tel = _extract_tel(out)
+        if open_hours:
+            out["open_hours"] = open_hours
+        if tel:
+            out["tel"] = tel
+        return out
+
     parsed = _coerce_jsonish(result)
     if isinstance(parsed, list):
         for item in parsed:
@@ -227,13 +266,13 @@ def _extract_detail_from_result(result: Any) -> Optional[dict[str, Any]]:
                 if "text" in item:
                     inner = _coerce_jsonish(item["text"])
                     if isinstance(inner, dict) and inner.get("id"):
-                        return inner
+                        return normalize_detail(inner)
                 elif item.get("id") and item.get("name"):
-                    return item
+                    return normalize_detail(item)
         return None
     if isinstance(parsed, dict):
         if parsed.get("id") and parsed.get("name"):
-            return parsed
+            return normalize_detail(parsed)
         if "raw_result" in parsed:
             return _extract_detail_from_result(parsed["raw_result"])
         if "text" in parsed:
@@ -254,6 +293,8 @@ def _row_to_cached(row: AttractionCache) -> CachedAttraction:
         poi_id=row.poi_id,
         amap_type=row.amap_type,
         description=row.description,
+        open_hours=row.open_hours,
+        tel=row.tel,
     )
 
 
@@ -270,6 +311,8 @@ def _dict_to_cached(data: dict[str, Any]) -> CachedAttraction:
         poi_id=data.get("poi_id"),
         amap_type=data.get("amap_type"),
         description=data.get("description"),
+        open_hours=data.get("open_hours"),
+        tel=data.get("tel"),
     )
 
 

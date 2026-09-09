@@ -57,7 +57,7 @@
 ## 项目结构
 
 ```
-helloagents-trip-planner/
+yuntu-trip-planner/
 ├── backend/
 │   ├── run.py                          # 启动入口
 │   ├── requirements.txt                # Python 依赖
