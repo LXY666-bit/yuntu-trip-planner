@@ -62,7 +62,11 @@ def _build_poi_dict(poi: Dict) -> Dict:
         "id": poi.get("id", ""),
         "name": poi["name"],
         "address": poi.get("address", ""),
-        "location": poi.get("location", ""),
+        "location": poi.get("location") or (
+            f"{poi['longitude']},{poi['latitude']}"
+            if poi.get("longitude") is not None and poi.get("latitude") is not None
+            else ""
+        ),
         "type": poi.get("type", ""),
     }
     photos = poi.get("photos")
@@ -141,8 +145,12 @@ def _extract_poi_names(text: str) -> List[Dict]:
                             for poi in inner["pois"]:
                                 if "name" in poi:
                                     pois.append(_build_poi_dict(poi))
+                        elif isinstance(inner, dict) and "name" in inner:
+                            pois.append(_build_poi_dict(inner))
                     except (json.JSONDecodeError, TypeError):
                         continue
+                elif isinstance(item, dict) and "name" in item:
+                    pois.append(_build_poi_dict(item))
                 elif isinstance(item, dict) and "pois" in item:
                     for poi in item["pois"]:
                         if "name" in poi:

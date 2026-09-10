@@ -1,8 +1,8 @@
 <template>
   <div class="my-trips-page">
     <div class="page-header">
-      <h1 class="page-title">🗺️ 我的行程</h1>
-      <p class="page-subtitle">查看和管理你的旅行计划</p>
+      <div><span class="eyebrow">YOUR TRAVEL JOURNAL</span><h1 class="page-title">我的旅行手记</h1>
+      <p class="page-subtitle">把走过的风景收藏，把下一次出发安排好。</p></div><a-button type="primary" @click="goHome">＋ 新的旅程</a-button>
     </div>
 
     <div class="toolbar">
@@ -29,11 +29,12 @@
       </div>
     </div>
 
+    <a-alert v-if="loadError" type="error" show-icon :message="loadError"><template #action><a-button size="small" @click="loadTrips">重试</a-button></template></a-alert>
     <a-spin :spinning="loading" tip="加载中...">
-      <div v-if="trips.length === 0 && !loading" class="empty-state">
+      <div v-if="trips.length === 0 && !loading && !loadError" class="empty-state">
         <div class="empty-icon">📋</div>
-        <div class="empty-text">还没有行程记录</div>
-        <div class="empty-hint">去首页创建你的第一个旅行计划吧！</div>
+        <div class="empty-text">{{ searchKeyword ? '没有找到匹配的行程' : currentFilter ? '这个分类还没有行程' : '还没有行程记录' }}</div>
+        <div class="empty-hint">{{ searchKeyword ? '换一个城市或关键词试试' : '从一个心动的目的地开始吧。' }}</div>
         <a-button type="primary" @click="goHome" size="large" class="empty-btn">
           ✨ 开始规划
         </a-button>
@@ -46,6 +47,7 @@
           class="trip-card animate-fade-in-up"
           :class="`stagger-${Math.min(idx + 1, 8)}`"
           @click="viewTrip(trip)"
+          tabindex="0" @keydown.enter.self="viewTrip(trip)"
         >
           <div class="card-cover" :style="getCoverStyle(trip)">
             <div class="card-cover-overlay"></div>
@@ -115,6 +117,8 @@ const router = useRouter()
 
 const trips = ref<TripRecord[]>([])
 const loading = ref(false)
+const loadError = ref('')
+let requestVersion = 0
 const total = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(12)
@@ -135,43 +139,33 @@ const setFilter = (value: string) => {
 }
 
 const loadTrips = async () => {
+  const version = ++requestVersion
   loading.value = true
+  loadError.value = ''
   try {
-    const res = await getTripList({
-      status: currentFilter.value || undefined,
-      page: currentPage.value,
-      page_size: pageSize.value,
-    })
+    const keyword = searchKeyword.value.trim()
+    const res = keyword ? await searchTrips(keyword, currentPage.value, pageSize.value)
+      : await getTripList({ status: currentFilter.value || undefined, page: currentPage.value, page_size: pageSize.value })
+    if (version !== requestVersion) return
+    if (res.total > 0 && res.data.length === 0 && currentPage.value > 1) {
+      currentPage.value -= 1
+      return await loadTrips()
+    }
     trips.value = res.data
     total.value = res.total
   } catch (e: any) {
-    message.error('加载行程列表失败')
+    if (version === requestVersion) loadError.value = e?.message || '暂时无法加载行程，请重试'
   } finally {
-    loading.value = false
+    if (version === requestVersion) loading.value = false
   }
 }
-
-const handleSearch = async (value: string) => {
-  if (!value.trim()) {
-    loadTrips()
-    return
-  }
-  loading.value = true
-  try {
-    const res = await searchTrips(value, currentPage.value, pageSize.value)
-    trips.value = res.data
-    total.value = res.total
-  } catch {
-    message.error('搜索失败')
-  } finally {
-    loading.value = false
-  }
-}
-
-const handlePageChange = (page: number) => {
-  currentPage.value = page
+const handleSearch = (value: string) => {
+  searchKeyword.value = value
+  currentPage.value = 1
+  currentFilter.value = ''
   loadTrips()
 }
+const handlePageChange = (page: number) => { currentPage.value = page; loadTrips() }
 
 const viewTrip = (trip: TripRecord) => {
   router.push(`/trip/${trip.id}`)
@@ -184,9 +178,11 @@ const toggleFavorite = async (trip: TripRecord) => {
   try {
     await updateTripStatus(trip.id, newStatus)
     trip.status = newStatus as any
+    if (currentFilter.value) await loadTrips()
     message.success(newStatus === 'favorite' ? '已收藏' : '已取消收藏')
-  } catch {
-    message.error('操作失败')
+  } catch (e: any) {
+    console.error('收藏操作失败:', e)
+    message.error(e?.message || '操作失败')
   }
 }
 
@@ -195,9 +191,11 @@ const toggleArchive = async (trip: TripRecord) => {
   try {
     await updateTripStatus(trip.id, newStatus)
     trip.status = newStatus as any
+    if (currentFilter.value) await loadTrips()
     message.success(newStatus === 'archived' ? '已归档' : '已取消归档')
-  } catch {
-    message.error('操作失败')
+  } catch (e: any) {
+    console.error('归档操作失败:', e)
+    message.error(e?.message || '操作失败')
   }
 }
 
@@ -206,8 +204,9 @@ const handleDelete = async (trip: TripRecord) => {
     await deleteTripFromHistory(trip.id)
     message.success('行程已删除')
     loadTrips()
-  } catch {
-    message.error('删除失败')
+  } catch (e: any) {
+    console.error('删除失败:', e)
+    message.error(e?.message || '删除失败')
   }
 }
 
@@ -215,7 +214,7 @@ const getCoverStyle = (trip: TripRecord) => {
   if (trip.cover_image) {
     return { backgroundImage: `url(${trip.cover_image})` }
   }
-  const colors = ['#667eea', '#764ba2', '#f093fb', '#4facfe', '#43e97b', '#fa709a']
+  const colors = ['#476b58', '#7b8d76', '#8f8771', '#557775', '#95806c', '#576557']
   const idx = trip.id % colors.length
   return { background: `linear-gradient(135deg, ${colors[idx]}, ${colors[(idx + 1) % colors.length]})` }
 }
@@ -524,5 +523,30 @@ onMounted(loadTrips)
   .trips-grid {
     grid-template-columns: 1fr;
   }
+}
+
+.my-trips-page { max-width: 1240px; padding: 104px 32px 48px; }
+.page-header { display: flex; justify-content: space-between; align-items: center; text-align: left; gap: 24px; margin-bottom: 36px; }
+.page-title { font-size: 30px; margin: 12px 0 10px; font-weight: 600; letter-spacing: -.6px; }
+.page-subtitle { font-size: 13px; margin: 0; }
+.toolbar { padding-bottom: 24px; border-bottom: 1px solid var(--color-border); }
+.filter-pill { border-radius: 8px; font-size: 12px; }
+.filter-pill.active { background: var(--color-primary-soft); color: var(--color-primary); border-color: var(--color-primary); box-shadow: none; }
+.pill-icon { display: none; }
+.trip-card { box-shadow: none; border: 1px solid var(--color-border-light); border-radius: 15px; }
+.trip-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+.card-cover { height: 175px; }
+.card-city { font-size: 25px; font-weight: 550; letter-spacing: 2px; }
+.card-status-badge { font-size: 10px; padding: 5px 9px; border-radius: 6px; }
+.card-title { font-size: 16px; }
+.card-actions { border-color: var(--color-border-light); }
+.empty-state { background: var(--color-bg-card); border: 1px dashed var(--color-border); border-radius: 18px; margin: 24px 0; padding: 64px 24px; }
+@media (max-width: 600px) {
+  .my-trips-page { padding: 88px 16px 32px; }
+  .page-header { align-items: flex-start; gap: 12px; }
+  .page-title { font-size: 25px; }
+  .page-subtitle { max-width: 230px; line-height: 1.8; }
+  .page-header > .ant-btn { margin-top: 26px; font-size: 12px; }
+  .search-box, .search-box :deep(.ant-input-search) { width: 100% !important; }
 }
 </style>

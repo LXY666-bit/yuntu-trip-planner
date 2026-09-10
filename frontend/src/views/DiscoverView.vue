@@ -1,5 +1,5 @@
 <template>
-  <div class="discover-page">
+  <div class="discover-page" :class="{ 'header-hidden': headerHidden }">
     <!-- 顶部导航 -->
     <header class="discover-header">
       <div class="header-content">
@@ -13,6 +13,7 @@
     <div v-if="phase === 'discover'" class="discover-layout">
       <!-- 左侧: 景点列表 -->
       <div class="left-panel">
+        <div class="discovery-intro"><span class="eyebrow">CURATE YOUR JOURNEY</span><h1>下一站，心之所向</h1><p>从 {{ formData?.city }} 的风景里，选出你想停留的地方。</p></div>
         <!-- 搜索栏 -->
         <div class="search-bar">
           <a-input-search
@@ -21,7 +22,23 @@
             :loading="searching"
             @search="handleManualSearch"
           />
+          <a-tooltip title="AI 从当前景点池挑选必去与备选，可再手动调整">
+            <a-button class="ai-select-btn" :disabled="loading || !attractions.length" :loading="aiSelecting" @click="applyAiSelection">
+              ✨ AI 帮我选
+            </a-button>
+          </a-tooltip>
         </div>
+
+        <!-- AI 选景结果说明 -->
+        <a-alert
+          v-if="aiSummary"
+          type="success"
+          show-icon
+          closable
+          class="ai-summary"
+          :message="aiSummary"
+          @close="aiSummary = ''"
+        />
 
         <!-- 搜索结果下拉 -->
         <div v-if="searchResults.length > 0" class="search-results-dropdown">
@@ -68,13 +85,15 @@
             @toggle="toggleAttraction"
           />
           <div v-if="!loading && filteredAttractions.length === 0" class="empty-state">
-            <p>{{ attractions.length === 0 ? '正在搜索景点...' : '该分类下暂无景点' }}</p>
+            <p>{{ attractions.length === 0 ? '暂未找到景点，可以重试或手动搜索添加' : '该分类下暂无景点' }}</p>
+            <a-button v-if="attractions.length === 0" @click="startDiscovery">重新发现景点</a-button>
           </div>
         </div>
       </div>
 
       <!-- 右侧: 地图 -->
       <div class="right-panel">
+        <div class="map-heading"><span>目的地地图</span><span>{{ attractions.filter(a => a.location).length }} 处已定位</span></div>
         <DiscoveryMap
           ref="mapRef"
           :attractions="attractions"
@@ -87,6 +106,12 @@
       <div class="bottom-bar">
         <div class="selection-info">
           已选择 <strong>{{ selectedCount }}</strong> 个景点
+          <span v-if="selectedTotalMinutes > 0" class="duration-hint">
+            · 预计游玩 {{ formatMinutes(selectedTotalMinutes) }}
+            <em :class="{ 'over-budget': dailyAverageMinutes > 480 }">
+              （均每天约 {{ formatMinutes(dailyAverageMinutes) }}{{ dailyAverageMinutes > 480 ? '，行程偏紧' : '' }}）
+            </em>
+          </span>
           <span v-if="selectedCount < 2" class="hint">（至少选择2个景点）</span>
         </div>
         <a-button
@@ -113,7 +138,12 @@
           :key="dayIdx"
           class="day-column"
         >
-          <div class="day-header">第 {{ dayIdx + 1 }} 天</div>
+          <div class="day-header">
+            <span>第 {{ dayIdx + 1 }} 天</span>
+            <span class="day-duration" :class="{ 'over-budget': dayTotalMinutes(day) > 480 }">
+              约 {{ formatMinutes(dayTotalMinutes(day)) }}{{ dayTotalMinutes(day) > 480 ? ' ⚠️ 偏紧' : '' }}
+            </span>
+          </div>
           <draggable
             v-model="dayAssignments[dayIdx]"
             group="days"
@@ -121,6 +151,7 @@
             class="day-attractions"
             ghost-class="draggable-ghost"
             :animation="200"
+            @change="assignmentEdited = true"
           >
             <template #item="{ element: attr }">
               <div class="draggable-mini-card">
@@ -158,17 +189,25 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, reactive } from 'vue'
+import { useScrollHeader } from '@/composables/useScrollHeader'
 import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import draggable from 'vuedraggable'
 import SelectableAttractionCard from '@/components/SelectableAttractionCard.vue'
 import DiscoveryMap from '@/components/DiscoveryMap.vue'
 import PlanProgress from '@/components/PlanProgress.vue'
-import { discoverAttractionsStream, searchAttractionManual, planFromSelectionsStream } from '@/services/api'
+import { discoverAttractionsStream, searchAttractionManual, planFromSelectionsStream, aiSelectAttractions, previewDayAssignment } from '@/services/api'
 import type { StreamEvent } from '@/services/api'
+import { useAbortController } from '@/composables/useSSEStream'
+import { formatMinutes } from '@/composables/useFormat'
 import type { DiscoveredAttraction, TripFormData, DiscoveryStreamEvent } from '@/types'
 
 const router = useRouter()
+const { hidden: headerHidden } = useScrollHeader()
+
+// 页面卸载时自动取消未完成的 SSE 流，避免继续往已卸载组件写数据
+const { signal: streamSignal } = useAbortController()
+const { signal: planSignal } = useAbortController()
 
 const formData = ref<TripFormData | null>(null)
 const attractions = reactive<DiscoveredAttraction[]>([])
@@ -180,6 +219,9 @@ const loadingProgress = ref(0)
 const searchKeyword = ref('')
 const searching = ref(false)
 const searchResults = ref<DiscoveredAttraction[]>([])
+const aiSelecting = ref(false)
+const aiSummary = ref('')
+const dayAssigning = ref(false)
 const activeCategory = ref('全部')
 const highlightedAttraction = ref('')
 const phase = ref<'discover' | 'assign' | 'planning'>('discover')
@@ -233,6 +275,19 @@ const filteredAttractions = computed(() => {
 
 const selectedCount = computed(() => attractions.filter(a => a.selected).length)
 
+/** 已选景点预计游玩总时长（分钟），缺失按 90 分钟估 */
+const selectedTotalMinutes = computed(() =>
+  attractions
+    .filter(a => a.selected)
+    .reduce((sum, a) => sum + (a.visit_minutes || 90), 0)
+)
+
+/** 均摊到每天的游玩时长（分钟） */
+const dailyAverageMinutes = computed(() => {
+  const days = formData.value?.travel_days || 1
+  return Math.round(selectedTotalMinutes.value / days)
+})
+
 function goBack() {
   router.push('/')
 }
@@ -282,7 +337,11 @@ function addSearchResult(attr: DiscoveredAttraction) {
   message.success(`已添加: ${attr.name}`)
 }
 
+let assignmentVersion = 0
+const assignmentEdited = ref(false)
+
 function startDayAssignment() {
+  assignmentEdited.value = false
   const selected = attractions.filter(a => a.selected)
   if (selected.length < 2) return
 
@@ -294,6 +353,111 @@ function startDayAssignment() {
   }
   dayAssignments.value = assignments
   phase.value = 'assign'
+  // 异步用"LLM 估时 + 地理聚类 + 时长均衡"的智能分配替换简单均分，
+  // 失败则静默保留均分结果（不阻塞用户操作）
+  applySmartAssignment(selected, days)
+}
+
+/** 调后端 preview-day-assignment：地理聚类 + 游玩时长联合分日 */
+async function applySmartAssignment(selected: DiscoveredAttraction[], days: number) {
+  const version = ++assignmentVersion
+  dayAssigning.value = true
+  try {
+    const resp = await previewDayAssignment({
+      selected_attractions: selected.map(a => ({
+        name: a.name, description: a.description, address: a.address,
+        category: a.category, rating: a.rating, ticket_price: a.ticket_price,
+        image_url: a.image_url, location: a.location, poi_id: a.poi_id,
+        visit_minutes: a.visit_minutes,
+      })),
+      travel_days: days,
+    })
+    // 仅在用户仍停留在 assign 阶段时替换，避免覆盖用户已做的拖拽调整
+    if (version === assignmentVersion && !assignmentEdited.value && phase.value === 'assign' && resp.day_assignments.length > 0) {
+      dayAssignments.value = resp.day_assignments
+      const warnings = resp.day_durations.filter(d => d.warning).length
+      if (warnings > 0) {
+        message.info(`${warnings} 天的行程偏紧，可以把景点拖到其他天均衡一下`)
+      }
+    }
+  } catch (e) {
+    console.warn('智能分日预览失败，保留均分结果:', e)
+  } finally {
+    if (version === assignmentVersion) dayAssigning.value = false
+  }
+}
+
+/** 单日已选景点的预计游玩总时长（分钟），缺 visit_minutes 按 90 分钟估 */
+function dayTotalMinutes(day: DiscoveredAttraction[]): number {
+  return day.reduce((sum, a) => sum + (a.visit_minutes || 90), 0)
+}
+
+/** AI 池内选景：后端按评分/时长/偏好挑必去与备选，用户仍可手动增删 */
+async function applyAiSelection() {
+  if (!formData.value || aiSelecting.value) return
+  const pool = attractions.filter(a => a.poi_id)
+  if (pool.length === 0) {
+    message.warning('景点列表为空，等待景点加载完成后再试')
+    return
+  }
+
+  aiSelecting.value = true
+  try {
+    const resp = await aiSelectAttractions({
+      destination: formData.value.city,
+      days: formData.value.travel_days,
+      attractions: pool.map(a => ({
+        poi_id: a.poi_id, name: a.name, category: a.category,
+        rating: a.rating, address: a.address, description: a.description,
+        ticket_price: a.ticket_price, open_hours: a.open_hours,
+        visit_minutes: a.visit_minutes,
+      })),
+      preferences: {
+        preferences: formData.value.preferences,
+        food_preference: formData.value.food_preference,
+        free_text_input: formData.value.free_text_input,
+        transportation: formData.value.transportation,
+        accommodation: formData.value.accommodation,
+        budget: formData.value.budget,
+      },
+    })
+
+    // 先清掉上一轮的 AI 标记
+    attractions.forEach(a => { a.aiPick = undefined })
+
+    const idToAttr = new Map(pool.map(a => [a.poi_id!, a]))
+    let mustCount = 0
+    let optionalCount = 0
+    for (const id of resp.must_ids) {
+      const attr = idToAttr.get(id)
+      if (attr) {
+        attr.aiPick = 'must'
+        attr.selected = true
+        mustCount += 1
+      }
+    }
+    for (const id of resp.optional_ids) {
+      const attr = idToAttr.get(id)
+      if (attr) {
+        attr.aiPick = 'optional'
+        attr.selected = true
+        optionalCount += 1
+      }
+    }
+
+    if (mustCount + optionalCount === 0) {
+      message.info('AI 未能给出推荐，请手动选择景点')
+    } else {
+      aiSummary.value = resp.summary
+        || `AI 已为你标记 ${mustCount} 个必去、${optionalCount} 个备选景点，可继续手动调整`
+      message.success(`AI 推荐 ${mustCount} 个必去 + ${optionalCount} 个备选`)
+    }
+  } catch (e: any) {
+    console.error('AI 选景失败:', e)
+    message.error(e?.message || 'AI 选景失败，请稍后重试')
+  } finally {
+    aiSelecting.value = false
+  }
 }
 
 async function confirmAndPlan() {
@@ -346,16 +510,29 @@ async function confirmAndPlan() {
         if (event.type === 'node_complete' && event.node) {
           planningCompletedNodes.value = new Set([...planningCompletedNodes.value, event.node])
           planningCurrentNode.value = event.node
-          planningMessage.value = event.message
-        } else if (event.type === 'complete' && event.data) {
-          sessionStorage.setItem('tripPlan', JSON.stringify(event.data))
-          message.success('行程计划生成完成!')
-          setTimeout(() => router.push('/result'), 500)
+          planningMessage.value = event.message || ''
+        } else if (event.type === 'complete') {
+          // 骨架图产物：带 draft_id → 进入草稿页逐日装配
+          if (event.draft_id) {
+            message.success('行程骨架已生成，可逐日查看和调整!')
+            setTimeout(() => router.push(`/draft/${event.draft_id}`), 500)
+            return
+          }
+          // 兼容旧全流程产物
+          if (event.data) {
+            sessionStorage.setItem('tripPlan', JSON.stringify(event.data))
+            message.success('行程计划生成完成!')
+            setTimeout(() => router.push('/result'), 500)
+            return
+          }
+          message.error('规划完成但未返回有效结果')
+          phase.value = 'assign'
         } else if (event.type === 'error') {
           message.error(event.message || '规划失败')
           phase.value = 'assign'
         }
-      }
+      },
+      { signal: planSignal }
     )
   } catch (e: any) {
     message.error('规划失败: ' + (e.message || '未知错误'))
@@ -366,6 +543,7 @@ async function confirmAndPlan() {
 async function startDiscovery() {
   if (!formData.value) return
 
+  attractions.splice(0)
   loading.value = true
   loadingProgress.value = 5
   loadingMessage.value = '正在搜索景点...'
@@ -383,6 +561,10 @@ async function startDiscovery() {
           }
         } else if (event.type === 'weather' && event.data) {
           weatherInfo.value = event.data
+        } else if (event.type === 'init') {
+          loading.value = true
+          loadingProgress.value = 5
+          loadingMessage.value = event.message || '正在初始化服务...'
         } else if (event.type === 'progress') {
           loadingProgress.value = event.progress || 0
           loadingMessage.value = event.message || ''
@@ -395,7 +577,8 @@ async function startDiscovery() {
           loading.value = false
           message.error(event.message || '景点发现失败')
         }
-      }
+      },
+      { signal: streamSignal }
     )
   } catch (e: any) {
     loading.value = false
@@ -424,7 +607,7 @@ onMounted(() => {
 /* ===== 页面底色: 柔和渐变 + 装饰光斑 ===== */
 .discover-page {
   min-height: 100vh;
-  padding-top: 64px;
+  padding-top: 48px;
   background:
     radial-gradient(ellipse 160% 60% at 20% 0%, rgba(102, 126, 234, 0.06) 0%, transparent 60%),
     radial-gradient(ellipse 140% 50% at 80% 30%, rgba(118, 75, 162, 0.04) 0%, transparent 55%),
@@ -435,16 +618,20 @@ onMounted(() => {
 /* ===== 头部: 玻璃拟态 ===== */
 .discover-header {
   position: sticky;
-  top: 64px;
+  top: 48px;
   z-index: 10;
-  background: #ffffff;
+  background: var(--color-bg-glass, rgba(255, 255, 255, 0.68));
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  border-bottom: 1px solid var(--color-glass-border);
+  transition: transform 220ms ease;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03), 0 2px 4px rgba(0, 0, 0, 0.02);
 }
 
 .header-content {
   max-width: 1100px;
   margin: 0 auto;
-  padding: 12px 24px;
+  padding: 8px 20px;
   display: flex;
   align-items: center;
   gap: 16px;
@@ -493,6 +680,11 @@ onMounted(() => {
   box-shadow: var(--shadow-button);
 }
 
+.header-hidden .discover-header:not(:focus-within) { transform: translateY(calc(-100% - 48px)); }
+@media (prefers-reduced-motion: reduce) {
+  .discover-header { transition: none; }
+}
+
 /* ===== 发现布局 ===== */
 .discover-layout {
   max-width: var(--content-max-width);
@@ -515,8 +707,8 @@ onMounted(() => {
 .right-panel {
   flex: 4;
   position: sticky;
-  top: 130px;
-  height: calc(100vh - 146px);
+  top: 110px;
+  height: calc(100vh - 126px);
   border-radius: var(--radius-lg);
   overflow: hidden;
   box-shadow: var(--shadow-elevated);
@@ -526,6 +718,26 @@ onMounted(() => {
 /* ===== 搜索栏 ===== */
 .search-bar {
   max-width: 420px;
+  display: flex;
+  gap: var(--space-2, 8px);
+  align-items: center;
+}
+
+.ai-select-btn {
+  flex: none;
+  border-radius: var(--radius-pill) !important;
+  border: 1.5px solid var(--color-primary, #f5593d);
+  color: var(--color-primary, #f5593d);
+  font-weight: 600;
+}
+
+.ai-select-btn:hover {
+  background: var(--color-primary-soft, rgba(245, 89, 61, 0.08));
+}
+
+.ai-summary {
+  max-width: 520px;
+  margin-top: var(--space-2, 8px);
 }
 
 .search-bar :deep(.ant-input-affix-wrapper) {
@@ -734,6 +946,22 @@ onMounted(() => {
   margin-left: var(--space-1);
 }
 
+.duration-hint {
+  font-size: var(--font-size-sm, 13px);
+  color: var(--color-text-secondary);
+  margin-left: var(--space-2, 8px);
+}
+
+.duration-hint em {
+  font-style: normal;
+  color: var(--color-text-tertiary, #999);
+}
+
+.duration-hint em.over-budget {
+  color: var(--color-warning, #fbc658);
+  font-weight: 600;
+}
+
 .bottom-bar :deep(.ant-btn-primary) {
   border-radius: var(--radius-pill) !important;
   background: var(--color-gradient) !important;
@@ -815,6 +1043,20 @@ onMounted(() => {
   padding: var(--space-3) var(--space-4);
   background: var(--color-gradient);
   letter-spacing: 0.02em;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.day-duration {
+  font-size: var(--font-size-xs, 12px);
+  font-weight: var(--font-weight-medium, 500);
+  opacity: 0.92;
+}
+
+.day-duration.over-budget {
+  opacity: 1;
+  color: #ffe58f;
 }
 
 .day-attractions {
@@ -957,5 +1199,50 @@ onMounted(() => {
   .selection-info {
     font-size: var(--font-size-sm);
   }
+}
+
+/* Calm discovery workspace. */
+.discover-page { background: var(--color-bg-secondary); }
+.header-content { max-width: 1280px; }
+.header-title { font-size: 14px; font-weight: 550; }
+.header-info { background: var(--color-primary-soft); color: var(--color-primary); box-shadow: none; font-size: 12px; padding: 4px 12px; }
+.discover-header { background: var(--color-glass-bg); z-index: 90; box-shadow: none; }
+.discover-layout { max-width: 1280px; gap: 32px; padding: 28px 32px 108px; }
+.discovery-intro { margin-bottom: 12px; }
+.discovery-intro h1 { font-size: 28px; font-weight: 600; margin: 10px 0 8px; letter-spacing: -.6px; }
+.discovery-intro p { font-size: 13px; color: var(--color-text-tertiary); margin: 0; }
+.search-bar { max-width: none; gap: 10px; }
+.ai-select-btn { border: 1px solid var(--color-primary); color: var(--color-primary); border-radius: 8px; box-shadow: none; }
+.category-filters { margin: 8px 0; gap: 8px; }
+.filter-btn { border-radius: 7px; padding: 6px 12px; border-color: var(--color-border); font-size: 12px; }
+.filter-btn.active, .filter-btn:hover { transform: none; box-shadow: none; }
+.filter-btn.active { background: var(--color-primary-soft); border-color: var(--color-primary); color: var(--color-primary); }
+.attractions-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.right-panel { top: 122px; height: calc(100vh - 218px); min-height: 300px; box-shadow: none; border-radius: 16px; border: 1px solid var(--color-border); background: var(--color-bg-card); display: flex; flex-direction: column; }
+.map-heading { display: flex; justify-content: space-between; align-items: center; padding: 16px 18px; font-size: 13px; font-weight: 600; border-bottom: 1px solid var(--color-border-light); }
+.map-heading span:last-child { font-size: 11px; font-weight: 400; color: var(--color-text-tertiary); }
+.right-panel :deep(.discovery-map-container) { flex: 1; height: auto; min-height: 0; border-radius: 0; }
+.bottom-bar { background: var(--color-glass-bg); box-shadow: 0 -4px 20px rgba(23,53,43,.035); padding: 16px max(24px, calc((100vw - 1216px) / 2)); z-index: 95; }
+.bottom-bar :deep(.ant-btn-primary), .assign-actions :deep(.ant-btn-primary) { border-radius: 9px !important; background: var(--color-primary) !important; color: var(--color-text-inverse); box-shadow: none !important; }
+.bottom-bar :deep(.ant-btn-primary:disabled) { opacity: .45; }
+.selection-info { font-size: 13px; }
+.selection-info strong { color: var(--color-primary); }
+.duration-hint { font-size: 12px; }
+.assign-layout { max-width: 1200px; padding: 32px; }
+.assign-header h3 { font-size: 24px; font-weight: 600; }
+.day-column { border: 1px solid var(--color-border); box-shadow: none; background: var(--color-bg-card); }
+.day-header { background: var(--color-primary-soft); color: var(--color-primary); }
+@media (max-width: 768px) {
+  .discover-layout { padding: 22px 16px 150px; gap: 20px; }
+  .discovery-intro h1 { font-size: 25px; }
+  .right-panel { position: static; height: 230px; min-height: 230px; flex: none; order: 0; }
+  .left-panel { flex: none; }
+  .attractions-grid { gap: 12px; }
+  .bottom-bar { padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); gap: 8px; }
+  .bottom-bar :deep(.ant-btn-primary) { width: 100%; }
+  .selection-info { font-size: 12px; }
+  .duration-hint { display: none; }
+  .header-content { gap: 10px; padding-inline: 16px; }
+  .header-title { font-size: 13px; }
 }
 </style>

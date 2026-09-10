@@ -168,7 +168,7 @@ def create_trip_planner_graph():
 def _route_after_geocode_batch(state) -> str:
     if state.get("_geocode_batches"):
         return "geocode_batch"
-    return "gather_discovery"
+    return "geocode_done"
 
 
 def create_discovery_graph():
@@ -189,6 +189,7 @@ def create_discovery_graph():
     workflow.add_node("geocode_dispatch", geocode_dispatch_node)
     workflow.add_node("geocode_batch", geocode_batch_node, retry=search_retry)
     workflow.add_node("search_weather", search_weather_node, retry=search_retry)
+    workflow.add_node("geocode_done", lambda state: {})
     workflow.add_node("gather_discovery", gather_discovery_node)
 
     workflow.add_edge(START, "web_search_attractions")
@@ -203,11 +204,11 @@ def create_discovery_graph():
         _route_after_geocode_batch,
         {
             "geocode_batch": "geocode_batch",
-            "gather_discovery": "gather_discovery",
+            "geocode_done": "geocode_done",
         },
     )
 
-    workflow.add_edge("search_weather", "gather_discovery")
+    workflow.add_edge(["search_weather", "geocode_done"], "gather_discovery")
     workflow.add_edge("gather_discovery", END)
 
     return workflow.compile()

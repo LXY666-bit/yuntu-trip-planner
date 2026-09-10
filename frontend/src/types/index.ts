@@ -19,13 +19,44 @@ export interface Attraction {
   category?: string
   rating?: number
   image_url?: string
+  poi_id?: string
   ticket_price?: number
   reservation_required?: boolean
   reservation_tips?: string
+  open_hours?: string
+  tel?: string
+}
+
+// 餐饮类别（与后端 DiningCategory 枚举对齐）
+export type DiningCategoryValue = 'main' | 'snack' | 'dessert' | 'cafe' | 'late_night'
+
+export interface DiningCandidate {
+  name: string
+  address?: string
+  location?: Location
+  category: DiningCategoryValue
+  cuisine?: string
+  rating?: number
+  avg_cost?: number
+  distance?: string
+  open_hours?: string
+  tel?: string
+  poi_id?: string
+  source?: string
+}
+
+/** 每日多类别餐饮候选池 */
+export interface DiningPoolDay {
+  main: DiningCandidate[]
+  snack: DiningCandidate[]
+  dessert: DiningCandidate[]
+  cafe: DiningCandidate[]
+  late_night: DiningCandidate[]
 }
 
 export interface Meal {
   type: 'breakfast' | 'lunch' | 'dinner' | 'snack'
+  category?: DiningCategoryValue
   name: string
   address?: string
   location?: Location
@@ -37,6 +68,8 @@ export interface Meal {
   poi_id?: string
   source?: 'nearby' | 'popular'
   estimated_cost?: number
+  open_hours?: string
+  tel?: string
 }
 
 export interface Hotel {
@@ -58,6 +91,7 @@ export interface Hotel {
   image_url?: string
   detail_url?: string
   distance_in_meters?: number
+  hotel_id?: number | string
 }
 
 export interface CompanionInfo {
@@ -98,6 +132,105 @@ export interface DayPlan {
   attractions: Attraction[]
   meals: Meal[]
   route_segments: RouteSegment[]
+  timeline_order?: Array<Record<string, any>>
+  day_start_time?: string
+}
+
+// ============ 骨架草稿类型（与后端 schemas.py 对齐） ============
+
+/** 骨架阶段每日上下文 */
+export interface DraftDayContext {
+  day_index: number
+  date: string
+  attraction_names: string[]
+  attractions: Attraction[]
+  hotel?: Hotel | null
+  dining_pool: DiningPoolDay
+  weather?: WeatherInfo | null
+  day_start_time?: string | null
+}
+
+/** 详细阶段产物（每日装配后的完整时间轴） */
+export interface DayDetail {
+  day_index: number
+  date: string
+  description: string
+  attractions: Attraction[]
+  hotel?: Hotel | null
+  meals: Meal[]
+  route_segments: RouteSegment[]
+  day_start_time?: string | null
+  timeline_order: Array<Record<string, any>>
+  day_budget?: Budget | null
+  is_assembled: boolean
+}
+
+export interface DayDetailResponse {
+  draft_id: string
+  day_index: number
+  day_detail: DayDetail
+}
+
+/** 草稿完整载荷（GET /draft/{id}） */
+export interface TripDraftPayload {
+  draft_id: string
+  status: 'skeleton' | 'assembling' | 'finalized' | 'expired'
+  request: TripFormData
+  city: string
+  macro_plan: MacroPlan
+  days: DraftDayContext[]
+  days_detail: Array<DayDetail | null>
+  weather_info: WeatherInfo[]
+  created_at: string
+  updated_at: string
+}
+
+export interface MacroPlan {
+  city: string
+  total_days: number
+  days: Array<{ day_index: number; date: string; attraction_names: string[]; hotel_name: string }>
+  transportation: string
+  accommodation: string
+}
+
+/** 用户编辑端点共享请求体 */
+export interface DayEditRequest {
+  attractions_order?: string[]
+  meals?: Array<Record<string, any>>
+  day_start_time?: string
+}
+
+// ============ AI 选景 / 智能分日预览 ============
+
+export interface AISelectRequest {
+  destination: string
+  days: number
+  attractions: Array<Record<string, any>>
+  preferences?: Record<string, any> | null
+}
+
+export interface AISelectResponse {
+  must_ids: string[]
+  optional_ids: string[]
+  reasons: Record<string, string>
+  tags: Record<string, string[]>
+  summary?: string | null
+}
+
+export interface DayDurationInfo {
+  day_index: number
+  total_minutes: number
+  warning?: string | null
+}
+
+export interface PreviewDayAssignmentRequest {
+  selected_attractions: DiscoveredAttraction[]
+  travel_days: number
+}
+
+export interface PreviewDayAssignmentResponse {
+  day_assignments: DiscoveredAttraction[][]
+  day_durations: DayDurationInfo[]
 }
 
 export interface WeatherInfo {
@@ -139,6 +272,16 @@ export interface TripFormData {
   budget?: number
   companions?: CompanionInfo
   language?: string
+  default_day_start_time?: string
+}
+
+/**
+ * 表单内部状态：cities / companions 在表单初始化时就已构造，
+ * 模板与逻辑里无需再判空（避免 TS18048）。提交时可直接作为 TripFormData 使用。
+ */
+export interface TripFormState extends Omit<TripFormData, 'cities' | 'companions'> {
+  cities: CityStay[]
+  companions: CompanionInfo
 }
 
 export interface TripPlanResponse {
@@ -203,12 +346,17 @@ export interface DiscoveredAttraction {
   image_url?: string
   location?: Location
   poi_id?: string
+  visit_minutes?: number
+  open_hours?: string
+  tel?: string
   selected?: boolean
   manuallyAdded?: boolean
+  /** AI 池内选景结果：必去 / 备选（仅前端展示用） */
+  aiPick?: 'must' | 'optional'
 }
 
 export interface DiscoveryStreamEvent {
-  type: 'attraction' | 'weather' | 'hotels' | 'progress' | 'complete' | 'error'
+  type: 'init' | 'attraction' | 'weather' | 'progress' | 'complete' | 'error'
   message?: string
   data?: any
   node?: string

@@ -68,6 +68,14 @@ def is_structured_output_supported() -> bool:
     global _llm_instance
     if _llm_instance is None:
         get_llm()
+
+    # 环境变量优先: LLM_STRUCTURED_OUTPUT=on 强制启用 / off 强制关闭 / auto 按黑名单判断
+    mode = (get_settings().llm_structured_output or "auto").strip().lower()
+    if mode in ("on", "true", "1", "yes"):
+        return True
+    if mode in ("off", "false", "0", "no"):
+        return False
+
     model_name = (_llm_instance.model_name or "").lower()
     base_url = ""
     if hasattr(_llm_instance, 'openai_api_base') and _llm_instance.openai_api_base:

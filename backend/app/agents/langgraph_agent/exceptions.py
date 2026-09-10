@@ -1,8 +1,28 @@
 import asyncio
 import random
+import weakref
 from typing import Optional, Dict, Any, List
 
 from langchain_core.tools import BaseTool
+
+
+_amap_gates = weakref.WeakKeyDictionary()
+
+
+async def _invoke_amap_throttled(tool, arguments):
+    """Share a request gate across parallel discovery/dining/hotel nodes."""
+    loop = asyncio.get_running_loop()
+    gate = _amap_gates.setdefault(loop, {"lock": asyncio.Lock(), "next": 0.0})
+    for attempt in range(2):
+        async with gate["lock"]:
+            await asyncio.sleep(max(0, gate["next"] - loop.time()))
+            gate["next"] = loop.time() + 1.05
+        try:
+            return await tool.ainvoke(arguments)
+        except Exception as exc:
+            if "CUQPS_HAS_EXCEEDED_THE_LIMIT" not in str(exc) or attempt:
+                raise
+            await asyncio.sleep(2)
 
 
 class RetryableError(Exception):
@@ -42,7 +62,9 @@ async def _invoke_tool_with_retry(
     for attempt in range(max_retries):
         try:
             result = await asyncio.wait_for(
-                tool.ainvoke(arguments), timeout=per_attempt_timeout
+                _invoke_amap_throttled(tool, arguments)
+                if tool.name.startswith("maps_") else tool.ainvoke(arguments),
+                timeout=per_attempt_timeout
             )
             return result
         except asyncio.TimeoutError:

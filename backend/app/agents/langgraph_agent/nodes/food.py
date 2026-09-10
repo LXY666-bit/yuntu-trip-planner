@@ -333,24 +333,14 @@ async def _search_dining_category(
     center: Optional[tuple],
     city: str,
 ) -> List[Dict[str, Any]]:
-    """跑一次 amap POI 搜索；center 为 None 时走城市文本搜索"""
+    """跑一次 amap POI 搜索；center 为 None 时走城市文本搜索。
+
+    兜底链: 周边1.5km → 周边4km → 城市文本搜索（郊区/景区周边小半径常搜不到）
+    """
     keyword, _top_n = _DINING_KEYWORDS[category]
     service = get_langchain_amap_service()
 
-    if center is not None:
-        tool = await service.get_tool("maps_around_search")
-        if tool is None:
-            return []
-        try:
-            raw = await _invoke_tool_with_retry(
-                tool,
-                {"keywords": keyword, "location": f"{center[0]},{center[1]}", "radius": "1500"},
-                max_retries=1, per_attempt_timeout=15.0,
-            )
-        except Exception as e:
-            print(f" ⚠️ dining[{category.value}] around 失败: {str(e)[:80]}")
-            return []
-    else:
+    async def _text_search() -> List[Dict[str, Any]]:
         tool = await service.get_tool("maps_text_search")
         if tool is None:
             return []
@@ -362,8 +352,29 @@ async def _search_dining_category(
         except Exception as e:
             print(f" ⚠️ dining[{category.value}] text 失败: {str(e)[:80]}")
             return []
+        return _parse_amap_poi_list(raw)
 
-    return _parse_amap_poi_list(raw)
+    if center is not None:
+        tool = await service.get_tool("maps_around_search")
+        if tool is None:
+            return []
+        for radius in ("1500", "4000"):
+            try:
+                raw = await _invoke_tool_with_retry(
+                    tool,
+                    {"keywords": keyword, "location": f"{center[0]},{center[1]}", "radius": radius},
+                    max_retries=1, per_attempt_timeout=15.0,
+                )
+            except Exception as e:
+                print(f" ⚠️ dining[{category.value}] around 失败: {str(e)[:80]}")
+                return []
+            pois = _parse_amap_poi_list(raw)
+            if pois:
+                return pois
+            print(f" ℹ️ dining[{category.value}] {radius}m 内无结果, 扩大搜索")
+        return await _text_search()
+
+    return await _text_search()
 
 
 def _poi_to_dining_candidate(

@@ -107,10 +107,23 @@ def _apply_attraction_order(
 
 
 def _default_main_meal(ctx: DraftDayContext, attractions: List[Attraction]) -> tuple[Optional[Meal], str]:
-    if not attractions or not ctx.dining_pool.main:
+    # 类别兜底链: 正餐缺位时依次尝试小吃/夜宵/甜品/咖啡，避免该天没有餐厅推荐
+    from ....models.schemas import DiningCategory
+
+    candidate_list = None
+    for cat_attr in ("main", "snack", "late_night", "dessert", "cafe"):
+        candidate_list = getattr(ctx.dining_pool, cat_attr, None) or []
+        if candidate_list:
+            break
+    if not candidate_list:
         return None, ""
-    top1 = ctx.dining_pool.main[0]
-    meal = _candidate_to_meal(top1)
+
+    meal = _candidate_to_meal(candidate_list[0])
+    if meal is None:
+        return None, ""
+    # 无景点的天挂到 hotel_end（timeline 组装时插在尾部酒店之前）
+    if not attractions:
+        return meal, "hotel_end"
     mid_idx = max(len(attractions) // 2 - 1, 0)
     return meal, attractions[mid_idx].name
 

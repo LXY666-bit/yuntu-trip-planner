@@ -21,8 +21,10 @@
 ![首页](image/home.png)
 
 ### 发现页 — 智能景点发现与选择
-![发现页-景点卡片](image/discovery1.png)
-![发现页-地图模式](image/discovery2.png)
+![发现页](image/discovery.png)
+
+支持卡片与地图两种浏览模式，可按类别筛选、手动搜索添加景点，或交给 AI 帮你挑选（"AI 帮我选"），
+右侧地图同步标注已定位景点，底部实时汇总已选数量与行程天数。
 
 ### 结果页 — 行程详情与多 Tab 展示
 ![结果页](image/result.png)

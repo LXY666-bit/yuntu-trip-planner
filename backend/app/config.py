@@ -54,6 +54,8 @@ class Settings(BaseSettings):
     llm_api_key: str = ""
     llm_base_url: str = ""
     llm_model_name: str = ""
+    # Structured Output 模式: auto=按模型黑名单判断 / on=强制启用(失败自动降级) / off=强制关闭
+    llm_structured_output: str = "auto"
 
     # 规划常量
     daily_transport_cost_default: int = 50

@@ -30,6 +30,10 @@ dist-ssr/
 .pytest_cache/
 .coverage
 
+# 测试与调试产物（截图、导出、审计报告等，不入库）
+output/
+.playwright-cli/
+
 # 系统文件
 .DS_Store
 Thumbs.db

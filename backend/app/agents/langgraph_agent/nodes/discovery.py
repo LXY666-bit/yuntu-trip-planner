@@ -191,6 +191,7 @@ async def geocode_batch_node(state: DiscoveryState) -> Dict[str, Any]:
         service = get_langchain_amap_service()
         search_tool = await service.get_tool("maps_text_search")
         detail_tool = await service.get_tool("maps_search_detail")
+        geo_tool = await service.get_tool("maps_geo")
 
         results = []
 
@@ -216,7 +217,7 @@ async def geocode_batch_node(state: DiscoveryState) -> Dict[str, Any]:
                 try:
                     search_result = await _invoke_tool_with_retry(
                         search_tool,
-                        {"keywords": attempt_name, "city": request.city},
+                        {"keywords": attempt_name, "city": request.city, "citylimit": "true"},
                         max_retries=2,
                         per_attempt_timeout=15.0,
                     )
@@ -284,6 +285,25 @@ async def geocode_batch_node(state: DiscoveryState) -> Dict[str, Any]:
                 except Exception as e:
                     print(f"  ⚠️ 搜索景点{attempt_name}失败: {e}")
 
+            # POI search/detail may both omit location; resolve the specific address.
+            if not attraction["location"] and geo_tool:
+                try:
+                    from ..utils.llm_json import parse_json_answer
+                    geo_result = await _invoke_tool_with_retry(
+                        geo_tool,
+                        {"address": f"{attraction['address']} {name}".strip(), "city": request.city},
+                        max_retries=1, per_attempt_timeout=15.0,
+                    )
+                    geo_data = geo_result if isinstance(geo_result, dict) else parse_json_answer(geo_result)
+                    geocodes = geo_data.get("geocodes") or []
+                    if geocodes and geocodes[0].get("level") not in ("省", "市", "区县"):
+                        loc = geocodes[0].get("location")
+                        if isinstance(loc, str) and "," in loc:
+                            lng, lat = map(float, loc.split(","))
+                            if -180 <= lng <= 180 and -90 <= lat <= 90:
+                                attraction["location"] = {"longitude": lng, "latitude": lat}
+                except Exception as e:
+                    print(f"  ⚠️ 景点地址定位失败({name}): {e}")
             results.append(attraction)
 
         print(f"📍 batch #{batch_idx} 完成: {len(results)} 个景点, 剩余 {len(remaining)} 批")

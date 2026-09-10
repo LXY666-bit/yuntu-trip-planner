@@ -304,11 +304,11 @@ async def web_search_attractions_node(state: TripPlannerState) -> Dict[str, Any]
                 return results, 0
             print(f"  📕 尝试使用小红书搜索 {city} 的景点...")
             try:
-                xhs_result = await asyncio_mod.to_thread(search_xhs_attractions, city, xhs_keywords)
+                xhs_result, xhs_note_count = await asyncio_mod.to_thread(search_xhs_attractions, city, xhs_keywords)
                 if xhs_result and "未在小红书检索到" not in xhs_result and "结构化数据失败" not in xhs_result:
                     results.append(f"=== [小红书] {city} 热门游记提纯结果 ===\n{xhs_result}")
-                    print(f"  ✅ 小红书搜索成功: {city} {xhs_keywords}")
-                    return results, 1
+                    print(f"  ✅ 小红书搜索成功: {city} {xhs_keywords} (装载 {xhs_note_count} 篇游记)")
+                    return results, xhs_note_count
                 else:
                     print(f"  ⚠️ 小红书搜索无结果")
             except Exception as e:
@@ -402,7 +402,7 @@ async def web_search_attractions_node(state: TripPlannerState) -> Dict[str, Any]
             }
 
         raw_results = "\n\n".join(all_results)
-        print(f"🔍 搜索完成: 小红书{xhs_success_count}条, 必应{bing_success_count}条, 降级DDG{ddg_success_count}条, 共{len(all_results)}条结果")
+        print(f"🔍 搜索完成: 小红书{xhs_success_count}篇游记, 必应{bing_success_count}条, 降级DDG{ddg_success_count}条, 共{len(all_results)}个上下文块")
         return {"raw_search_results": raw_results}
     except NonRetryableError as e:
         print(f"❌ web_search_attractions_node 不可重试错误: {e}")
@@ -652,7 +652,151 @@ async def geocode_attractions_node(state: TripPlannerState) -> Dict[str, Any]:
         }
 
 
+def _extract_amap_casts(weather_text: Any, city: str) -> List[Dict[str, Any]]:
+    """从高德 maps_weather 工具返回中提取逐日预报列表。
+
+    工具返回形态（MCP 适配器）：[{'type': 'text', 'text': '{"city":"长沙市","forecasts":[{...}]}'}]
+    其中 forecasts 为逐日条目（date/dayweather/nightweather/daytemp/nighttemp/
+    daywind/daynight/daypower 等别名），也兼容 {"forecasts":[{"casts":[...]}]} 嵌套形态。
+    入参既可是原始对象（list/dict），也可是其字符串形式。
+    """
+    if weather_text is None:
+        return []
+
+    data = _find_dict_with_forecasts(weather_text)
+    if data is None and isinstance(weather_text, str):
+        data = _coerce_json_object(weather_text)
+    if not isinstance(data, dict):
+        return []
+
+    forecasts = data.get("forecasts")
+    if not isinstance(forecasts, list) or not forecasts:
+        return []
+
+    casts: List[Dict[str, Any]] = []
+    for fc in forecasts:
+        if not isinstance(fc, dict):
+            continue
+        fc_city = str(fc.get("city") or city or "")
+        if fc.get("date"):
+            # 扁平形态：forecasts[] 直接就是逐日条目
+            casts.append(_cast_to_weather(fc, fc_city))
+        else:
+            # 嵌套形态：forecasts[].casts[] 才是逐日条目
+            for c in (fc.get("casts") or []):
+                if isinstance(c, dict) and c.get("date"):
+                    casts.append(_cast_to_weather(c, fc_city))
+    return casts
+
+
+def _cast_to_weather(c: Dict[str, Any], city: str) -> Dict[str, Any]:
+    return {
+        "date": str(c["date"])[:10],
+        "city": city,
+        "day_weather": str(c.get("dayweather") or c.get("day_weather") or ""),
+        "night_weather": str(c.get("nightweather") or c.get("night_weather") or ""),
+        "day_temp": _to_int(c.get("daytemp") or c.get("day_temp")),
+        "night_temp": _to_int(c.get("nighttemp") or c.get("night_temp")),
+        "wind_direction": str(c.get("daywind") or c.get("wind_direction") or ""),
+        "wind_power": str(c.get("daypower") or c.get("wind_power") or ""),
+    }
+
+
+def _coerce_json_object(text: str) -> Optional[Dict[str, Any]]:
+    """从工具返回文本（含 MCP content-block 列表 / 前后杂文本）中提取 JSON 对象。"""
+    if not text or not text.strip():
+        return None
+
+    candidates: List[str] = [text.strip()]
+    m = re.search(r"\{.*\}", text, re.DOTALL)
+    if m:
+        candidates.append(m.group(0))
+
+    for cand in candidates:
+        try:
+            parsed = json.loads(cand)
+        except (json.JSONDecodeError, ValueError):
+            continue
+        obj = _find_dict_with_forecasts(parsed)
+        if obj is not None:
+            return obj
+    return None
+
+
+def _find_dict_with_forecasts(node: Any, depth: int = 0) -> Optional[Dict[str, Any]]:
+    """递归查找包含 forecasts 字段的 dict（兼容 list/嵌套/dict/JSON 字符串等外层结构）。"""
+    if depth > 6:
+        return None
+    if isinstance(node, dict):
+        if isinstance(node.get("forecasts"), list):
+            return node
+        for v in node.values():
+            found = _find_dict_with_forecasts(v, depth + 1)
+            if found is not None:
+                return found
+    elif isinstance(node, (list, tuple)):
+        for item in node:
+            found = _find_dict_with_forecasts(item, depth + 1)
+            if found is not None:
+                return found
+    elif isinstance(node, str):
+        text = node.strip()
+        if not text:
+            return None
+        candidates = [text]
+        m = re.search(r"\{.*\}", text, re.DOTALL)
+        if m:
+            candidates.append(m.group(0))
+        for cand in candidates:
+            try:
+                parsed = json.loads(cand)
+            except (json.JSONDecodeError, ValueError):
+                continue
+            if parsed is not node:
+                found = _find_dict_with_forecasts(parsed, depth + 1)
+                if found is not None:
+                    return found
+    return None
+
+
+def _to_int(value: Any) -> int:
+    try:
+        return round(float(value))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _city_stay_ranges(request) -> List[tuple[str, int]]:
+    """把城市停留天数展开成 [(城市名, 天数), ...]，按行程顺序。
+
+    优先使用 normalize_cities 结果（多城市行程），退化到单一 request.city。
+    """
+    cities = getattr(request, "cities", None) or []
+    ranges: List[tuple[str, int]] = []
+    for c in cities:
+        name = getattr(c, "city", None) or getattr(c, "name", None)
+        days = int(getattr(c, "days", 0) or getattr(c, "travel_days", 0) or 0)
+        if name:
+            ranges.append((str(name), days))
+    if ranges:
+        total = sum(d for _, d in ranges)
+        if total <= 0:
+            # 天数缺失时平摊
+            travel_days = int(getattr(request, "travel_days", 0) or 0)
+            n = len(ranges)
+            each = travel_days // n if n else 0
+            ranges = [(name, each) for name, _ in ranges]
+        return ranges
+    city = getattr(request, "city", "") or ""
+    return [(str(city), int(getattr(request, "travel_days", 0) or 0))] if city else []
+
+
 async def search_weather_node(state: TripPlannerState) -> Dict[str, Any]:
+    """确定性查询逐日天气（不再依赖 LLM 决定是否调用工具）。
+
+    高德 maps_weather 使用 extensions=all 可一次返回未来 3~4 天逐日预报，
+    覆盖多城市行程时按城市停留天数展开并去重（按日期）。
+    """
     print("🌤️  执行节点: search_weather_node")
     request = state["request"]
 
@@ -661,62 +805,143 @@ async def search_weather_node(state: TripPlannerState) -> Dict[str, Any]:
         weather_tool = await service.get_tool("maps_weather")
         if weather_tool is None:
             return {
-                "weather_info": "",
+                "weather_info": [],
                 "errors": ["search_weather: maps_weather 工具不可用"],
             }
-        llm = get_llm()
-        llm_with_tools = llm.bind_tools([weather_tool])
 
-        prompt = WEATHER_AGENT_PROMPT + f"\n请查询城市: {request.city} 的天气。" + _get_preference_hint(state)
-        response = await _invoke_llm_with_retry(llm_with_tools, [SystemMessage(content=WEATHER_AGENT_PROMPT), HumanMessage(content=prompt)])
+        merged: Dict[str, Dict[str, Any]] = {}
+        ranges = _city_stay_ranges(request) or [(request.city, request.travel_days)]
 
-        results = []
-        if response.tool_calls:
-            for tool_call in response.tool_calls:
+        for city, _days in ranges:
+            for args in ({"city": city, "extensions": "all"}, {"city": city}):
                 try:
-                    tool_result = await _invoke_tool_with_retry(weather_tool, tool_call["args"])
-                    results.append(str(tool_result))
+                    tool_result = await _invoke_tool_with_retry(
+                        weather_tool, args, max_retries=2, per_attempt_timeout=15.0
+                    )
                 except NonRetryableError as e:
-                    print(f"⚠️ search_weather 工具调用不可重试: {e}")
-                    return {
-                        "weather_info": "",
-                        "errors": [f"search_weather: 工具调用不可重试 - {str(e)[:200]}"],
-                    }
+                    print(f"⚠️ search_weather 城市 {city} 工具调用不可重试: {e}")
+                    break
                 except Exception as e:
-                    print(f"⚠️ search_weather 工具调用失败: {e}")
-                    results.append(f"[工具调用失败: {str(e)[:100]}]")
+                    print(f"⚠️ search_weather 城市 {city} 查询失败: {e}")
+                    continue
 
-        if not results:
-            print("⚠️ search_weather_node: LLM未调用工具，直接查询天气...")
-            try:
-                direct_result = await _invoke_tool_with_retry(
-                    weather_tool,
-                    {"city": request.city},
-                    max_retries=2,
-                    per_attempt_timeout=15.0,
-                )
-                results.append(str(direct_result))
-                print(f"  ✅ 直接查询天气成功")
-            except Exception as e:
-                print(f"⚠️ search_weather 直接查询也失败: {e}")
-                return {
-                    "weather_info": "",
-                    "errors": ["search_weather: LLM未调用工具且直接查询也失败"],
-                }
+                casts = _extract_amap_casts(tool_result, city)
+                if casts:
+                    for c in casts:
+                        merged.setdefault(c["date"], c)
+                    print(f"  ✅ {city} 获取 {len(casts)} 天预报")
+                    break
+                print(f"  ⚠️ {city} 高德返回无法解析（args={args}），返回类型 {type(tool_result).__name__}，前缀: {str(tool_result)[:120]}")
+            else:
+                print(f"  ⚠️ {city} 未获取到逐日预报，尝试 Open-Meteo 兜底")
 
-        return {"weather_info": "\n".join(results)}
-    except NonRetryableError as e:
-        print(f"❌ search_weather_node 不可重试错误: {e}")
-        return {
-            "weather_info": "",
-            "errors": [f"search_weather: 不可重试错误 - {str(e)[:200]}"],
-        }
+        # 高德预报窗口仅约 4 天，出行日期可能超出。按行程日期窗口对齐：
+        # 优先用高德数据，缺失日期用 Open-Meteo 补齐（保证与 day_idx 一一对应）。
+        trip_dates = _trip_date_range(request)
+        weather_list = _align_to_trip_dates(merged, trip_dates)
+
+        missing = [d for d in trip_dates if d not in {w["date"] for w in weather_list}]
+        if missing:
+            print(f"  ⚠️ 高德未覆盖 {len(missing)} 天（{missing[0]}~{missing[-1]}），Open-Meteo 补齐")
+            fallback = await _open_meteo_fallback(request, dates=missing)
+            by_date = {w["date"]: w for w in weather_list}
+            for w in fallback:
+                by_date.setdefault(w["date"], w)
+            weather_list = [by_date[d] for d in sorted(by_date)]
+        elif not weather_list:
+            weather_list = await _open_meteo_fallback(request)
+
+        if weather_list:
+            print(f"✅ 天气信息: {len(weather_list)} 天 ({weather_list[0]['date']} ~ {weather_list[-1]['date']})")
+        else:
+            print("⚠️ 未能获取任何天气信息")
+        return {"weather_info": weather_list}
     except Exception as e:
         print(f"❌ search_weather_node 异常: {e}")
         return {
-            "weather_info": "",
+            "weather_info": [],
             "errors": [f"search_weather: 查询失败 - {str(e)[:200]}"],
         }
+
+
+def _trip_date_range(request) -> List[str]:
+    """行程日期窗口（YYYY-MM-DD 列表），用于把天气与 day_idx 对齐。"""
+    from datetime import datetime, timedelta
+
+    start = getattr(request, "start_date", None)
+    try:
+        start_dt = datetime.strptime(str(start)[:10], "%Y-%m-%d")
+    except (TypeError, ValueError):
+        return []
+
+    days = int(getattr(request, "travel_days", 0) or 0)
+    if days <= 0:
+        return []
+    return [(start_dt + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(days)]
+
+
+def _align_to_trip_dates(
+    merged: Dict[str, Dict[str, Any]], trip_dates: List[str]
+) -> List[Dict[str, Any]]:
+    """按行程日期取天气；日期超出预报窗口时，用最近可用日期兜底（保证天数为 travel_days）。"""
+    if not merged:
+        return []
+    if not trip_dates:
+        return [merged[d] for d in sorted(merged)]
+
+    available = sorted(merged)
+    result: List[Dict[str, Any]] = []
+    for d in trip_dates:
+        if d in merged:
+            result.append({**merged[d], "date": d})
+        else:
+            # 超出预报窗口：借最近一天的天气，但日期改写为行程日
+            nearest = available[-1] if d > available[-1] else available[0]
+            result.append({**merged[nearest], "date": d})
+    return result
+
+
+async def _open_meteo_fallback(request, dates: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+    """高德无逐日预报时，用 Open-Meteo 查询（对中文城市不友好，故优先用经纬度）。
+
+    dates 非空时仅查询该日期列表覆盖的范围。
+    """
+    try:
+        from ....services.open_meteo_service import fetch_open_meteo_weather
+    except ImportError as e:
+        print(f"⚠️ Open-Meteo 服务不可用: {e}")
+        return []
+
+    try:
+        from datetime import datetime, timedelta
+
+        if dates:
+            start_date = dates[0][:10]
+            end_date = dates[-1][:10]
+        else:
+            start = getattr(request, "start_date", None)
+            if start:
+                start_date = str(start)[:10]
+            else:
+                start_date = datetime.now().strftime("%Y-%m-%d")
+            travel_days = int(getattr(request, "travel_days", 0) or 3)
+            end_date = (
+                datetime.strptime(start_date, "%Y-%m-%d") + timedelta(days=max(travel_days - 1, 0))
+            ).strftime("%Y-%m-%d")
+
+        city = getattr(request, "city", "") or ""
+        lat = getattr(request, "latitude", None) or getattr(request, "lat", None)
+        lon = getattr(request, "longitude", None) or getattr(request, "lon", None)
+
+        forecasts = await fetch_open_meteo_weather(
+            city, start_date, end_date,
+            lat=float(lat) if lat is not None else None,
+            lon=float(lon) if lon is not None else None,
+        )
+        return [w.model_dump(mode="json") for w in forecasts]
+    except Exception as e:
+        print(f"⚠️ Open-Meteo 兜底失败: {e}")
+        return []
 
 
 def _accommodation_to_star_ratings(accommodation: str) -> list:

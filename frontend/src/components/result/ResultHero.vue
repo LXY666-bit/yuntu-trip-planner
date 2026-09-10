@@ -16,8 +16,8 @@
 
           <button v-if="!editMode" class="hero-btn" @click="$emit('edit')">编辑行程</button>
           <template v-else>
-            <button class="hero-btn hero-btn-primary" @click="$emit('saveChanges')">保存修改</button>
-            <button class="hero-btn" @click="$emit('cancelEdit')">取消</button>
+            <button class="hero-btn hero-btn-primary" :disabled="savingTrip" @click="$emit('saveChanges')">保存修改</button>
+            <button class="hero-btn" :disabled="savingTrip" @click="$emit('cancelEdit')">取消</button>
           </template>
 
           <div v-if="!editMode" class="export-dropdown" ref="exportDropdownRef">
@@ -365,4 +365,11 @@ onMounted(async () => {
     display: none;
   }
 }
+
+.result-hero { min-height: 280px; background-color: #244d41; }
+.hero-overlay { background: linear-gradient(100deg, rgba(16,42,32,.88), rgba(16,42,32,.4)); }
+.hero-title { font-size: clamp(26px, 3vw, 38px); font-weight: 550; letter-spacing: -.5px; max-width: 840px; }
+.hero-btn, .hero-back { border-radius: 7px; font-size: 12px; }
+.hero-tag { font-size: 12px; }
+@media (max-width: 600px) { .hero-top { align-items: flex-start; gap: 14px; } .hero-actions { flex-wrap: wrap; justify-content: flex-end; gap: 7px; } .hero-inner { padding: 22px 18px; } .hero-tags { flex-wrap: wrap; gap: 8px; } .hero-tag-divider { display: none; } }
 </style>

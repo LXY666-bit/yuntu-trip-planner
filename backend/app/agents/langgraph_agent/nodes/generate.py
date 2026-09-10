@@ -24,6 +24,31 @@ def _truncate_info(text: str, max_chars: int = 3000) -> str:
     return text[:max_chars] + f"\n... (已截断，原始数据共{len(text)}字符)"
 
 
+def _weather_to_text(raw: Any) -> str:
+    """把 weather_info（逐日预报列表或字符串）渲染为可读文本，供 LLM 提示使用。"""
+    if isinstance(raw, str):
+        return raw
+    if not isinstance(raw, (list, tuple)):
+        return ""
+
+    lines: List[str] = []
+    for w in raw:
+        if not isinstance(w, dict):
+            continue
+        date = str(w.get("date") or "")[:10]
+        city = str(w.get("city") or "")
+        day = str(w.get("day_weather") or "")
+        night = str(w.get("night_weather") or "")
+        d_temp = w.get("day_temp") or 0
+        n_temp = w.get("night_temp") or 0
+        wind = str(w.get("wind_direction") or "")
+        power = str(w.get("wind_power") or "")
+        lines.append(
+            f"{date} {city}: 白天{day} {d_temp}℃ / 夜间{night} {n_temp}℃, {wind}{power}"
+        )
+    return "\n".join(lines)
+
+
 _weather_data_cache: Optional[Dict[str, Any]] = None
 
 
@@ -264,7 +289,7 @@ async def generate_plan_node(state: TripPlannerState) -> Dict[str, Any]:
     print("📋 [DEPRECATED] 执行节点: generate_plan_node (旧版单体节点)")
     request = state["request"]
     attractions = _truncate_info(state.get("attractions_info", ""), 4000)
-    weather = _truncate_info(state.get("weather_info", ""), 1500)
+    weather = _truncate_info(_weather_to_text(state.get("weather_info", "")), 1500)
     hotels = _truncate_info(state.get("hotels_info", ""), 2000)
     food = _truncate_info(state.get("food_info", ""), 2000)
     cluster = _truncate_info(state.get("cluster_info", ""), 3000)
@@ -711,7 +736,7 @@ async def day_plan_generator_node(state: DayPlanLocalState) -> Dict[str, Any]:
     hotels_info = _truncate_info(state.get("hotels_info", ""), 3000)
     day_food_info = state.get("day_food_info", "")
     food_info = _truncate_info(day_food_info if day_food_info else state.get("food_info", ""), 2500)
-    weather_info = _truncate_info(state.get("weather_info", ""), 800)
+    weather_info = _truncate_info(_weather_to_text(state.get("weather_info", "")), 800)
     cluster_info = _truncate_info(state.get("cluster_info", ""), 2000)
 
     error_hint = ""
@@ -1406,21 +1431,20 @@ async def global_synthesizer_node(state: TripPlannerState) -> Dict[str, Any]:
 
     try:
         response = await _invoke_llm_with_retry(llm, messages)
-        raw = response.content.strip()
-        import json as _json
-        if raw.startswith("```"):
-            raw = raw.split("\n", 1)[1].rsplit("```", 1)[0].strip()
-        parsed = _json.loads(raw)
+        from ..utils.llm_json import parse_json_answer
+        parsed = parse_json_answer(response)
         suggestions = parsed.get("overall_suggestions", "")
         tagline = parsed.get("trip_tagline", "")
         weather_summary = parsed.get("weather_summary", "")
         print(f"💡 全局建议生成完成: tagline={tagline}, weather={weather_summary}")
     except Exception as e:
         print(f"⚠️ 全局建议JSON解析失败，回退纯文本: {str(e)[:80]}")
+        from ..utils.llm_json import answer_text
         try:
-            response = await _invoke_llm_with_retry(llm, messages)
-            suggestions = response.content.strip()
-        except Exception:
+            suggestions = answer_text(response) if "response" in locals() else ""
+        except ValueError:
+            suggestions = ""
+        if not suggestions or suggestions.startswith(("{", "[", "```")):
             suggestions = "请根据行程安排提前确认景点开放时间和交通信息。建议携带雨具和防晒用品。"
         tagline = ""
         weather_summary = _generate_weather_summary_fallback(trip_plan)

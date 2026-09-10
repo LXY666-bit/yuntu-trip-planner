@@ -8,7 +8,6 @@ from typing import Dict, List
 from langchain_core.messages import HumanMessage
 
 from ..exceptions import _invoke_llm_with_retry
-from .parsing import _extract_json_array
 from ....services.llm_service import get_llm
 
 
@@ -44,7 +43,7 @@ def _fallback_durations(attractions: List[Dict]) -> Dict[str, int]:
 
 async def estimate_durations_batch(
     attractions: List[Dict],
-    timeout_seconds: float = 8.0,
+    timeout_seconds: float = 20.0,
 ) -> Dict[str, int]:
     """一次性估算所有景点的游玩时长（分钟）。
 
@@ -59,6 +58,16 @@ async def estimate_durations_batch(
         return {}
 
     fallback = _fallback_durations(attractions)
+    known = {
+        a["name"]: int(a["visit_minutes"]) for a in attractions
+        if a.get("name") and isinstance(a.get("visit_minutes"), (int, float))
+        and not isinstance(a.get("visit_minutes"), bool)
+        and MIN_MINUTES <= a["visit_minutes"] <= MAX_MINUTES
+    }
+    fallback.update(known)
+    attractions = [a for a in attractions if a.get("name") not in known]
+    if not attractions:
+        return fallback
 
     lines = []
     for i, attr in enumerate(attractions):
@@ -81,7 +90,7 @@ async def estimate_durations_batch(
     try:
         llm = get_llm()
         response = await asyncio.wait_for(
-            _invoke_llm_with_retry(llm, [HumanMessage(content=prompt)], max_retries=2),
+            _invoke_llm_with_retry(llm, [HumanMessage(content=prompt)], max_retries=1),
             timeout=timeout_seconds,
         )
     except asyncio.TimeoutError:
@@ -91,13 +100,19 @@ async def estimate_durations_batch(
         print(f"⚠️ 游玩时长估算失败（{type(e).__name__}）: {e}，使用默认值兜底")
         return fallback
 
-    parsed = _extract_json_array(response.content)
+    from .llm_json import parse_json_answer
+    try:
+        parsed = parse_json_answer(response, list)
+    except ValueError:
+        parsed = None
     if not parsed:
         print("⚠️ 游玩时长估算返回无法解析，使用默认值兜底")
         return fallback
 
     result: Dict[str, int] = {}
     for item in parsed:
+        if not isinstance(item, dict):
+            continue
         name = item.get("name")
         minutes = item.get("visit_minutes")
         if not name:

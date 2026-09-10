@@ -6,7 +6,7 @@
         <span class="card-title">景点地图</span>
       </div>
       <div class="map-body">
-        <div id="amap-container" class="map-container"></div>
+        <div id="amap-container" ref="mapContainer" class="map-container"></div>
       </div>
     </div>
   </div>
@@ -24,26 +24,22 @@ const props = defineProps<{
 }>()
 
 let map: any = null
-const mapInitialized = ref(false)
+const mapContainer = ref<HTMLElement | null>(null)
+let generation = 0
+let disposed = false
 
-watch(() => props.visible, async (val) => {
-  if (val) {
-    await nextTick()
-    if (!mapInitialized.value) {
-      initMap()
-      mapInitialized.value = true
-    } else if (map) {
-      map.resize?.()
-    }
-  }
+function destroyMap() {
+  generation += 1
+  map?.destroy()
+  map = null
+}
+watch(() => props.visible, async (visible) => {
+  if (!visible) { destroyMap(); return }
+  await nextTick()
+  await initMap()
 }, { immediate: true })
 
-onBeforeUnmount(() => {
-  if (map) {
-    map.destroy()
-    map = null
-  }
-})
+onBeforeUnmount(() => { disposed = true; destroyMap() })
 
 const escapeHtml = (str: string | undefined | null): string => {
   if (str == null) return ''
@@ -55,17 +51,20 @@ const getMealLabel = (type: string): string => {
   return labels[type] || type
 }
 
-const initMap = async () => {
+async function initMap() {
+  const version = ++generation
   try {
     const AMap = await AMapLoader.load({
       key: import.meta.env.VITE_AMAP_WEB_JS_KEY,
       version: '2.0',
       plugins: ['AMap.Marker', 'AMap.Polyline', 'AMap.InfoWindow']
     })
-    map = new AMap.Map('amap-container', {
+    if (disposed || version !== generation || !props.visible || !mapContainer.value?.clientWidth) return
+    map?.destroy()
+    map = new AMap.Map(mapContainer.value, {
       zoom: 12,
       center: [116.397128, 39.916527],
-      viewMode: '3D'
+      viewMode: '2D'
     })
     addAttractionMarkers(AMap)
   } catch (error) {
@@ -177,16 +176,9 @@ const drawRoutes = (AMap: any, attractions: any[]) => {
   })
 }
 
-const refreshMap = () => {
-  if (map) {
-    map.destroy()
-    map = null
-    mapInitialized.value = false
-    nextTick(() => {
-      initMap()
-      mapInitialized.value = true
-    })
-  }
+const refreshMap = async () => {
+  destroyMap()
+  if (props.visible) { await nextTick(); await initMap() }
 }
 
 defineExpose({ refreshMap })

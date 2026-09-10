@@ -1,0 +1,22 @@
+/* Shared interaction and surface rules for every page. */
+body { font-weight: 400; }
+button, input, textarea { font: inherit; }
+button { -webkit-tap-highlight-color: transparent; }
+button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
+  outline: 3px solid var(--color-primary); outline-offset: 4px;
+}
+::selection { background: #cfe2d6; color: #183a32; }
+.eyebrow { color: var(--color-primary); font-size: 11px; font-weight: 650; letter-spacing: 2px; text-transform: uppercase; }
+.ant-card { border-color: var(--color-border-light); background: var(--color-bg-card); border-radius: 16px; }
+.ant-card-head { border-color: var(--color-border-light); }
+.ant-btn { box-shadow: none; }
+.ant-btn-primary { font-weight: 600; }
+.ant-input, .ant-input-affix-wrapper, .ant-input-number, .ant-picker { background: var(--color-bg-card); }
+.ant-input::placeholder, textarea::placeholder { color: var(--color-text-tertiary); }
+.ant-form-item-label > label { color: var(--color-text-secondary); }
+.ant-empty { padding: 36px 16px; }
+.ant-alert { border-radius: 10px; }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}

@@ -140,7 +140,19 @@ def _parse_amap_result(raw: Any, tool_name: str) -> Dict[str, str]:
     if tool_name == "maps_direction_transit_integrated":
         transits = data.get("transits") or data.get("route", {}).get("transits", [])
         if transits and isinstance(transits, list):
-            t = transits[0]
+            # 高德可能返回跨城等超长方案, 取耗时最短的方案而不是第一个
+            def _sec_of(t):
+                try:
+                    return int(float(t.get("duration") or 0))
+                except (ValueError, TypeError):
+                    return 1 << 60
+            t = min(transits, key=_sec_of)
+
+            total_sec = _sec_of(t)
+            if total_sec > 6 * 3600:
+                # 仍然超过6小时: 视为无效方案, 返回空结果让调用方走估算兜底
+                return {"distance": "", "duration": "", "detail": ""}
+
             duration = _parse_duration(t.get("duration", ""))
             distance = _parse_distance(t.get("distance", t.get("walking_distance", "")))
             segments = t.get("segments", [])

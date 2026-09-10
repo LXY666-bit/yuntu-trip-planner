@@ -5,6 +5,8 @@
         :src="imageUrl"
         :alt="attraction.name"
         class="attraction-image"
+        loading="lazy"
+        decoding="async"
         @error="handleImageError"
       />
       <div class="attraction-badge">
@@ -90,9 +92,11 @@ const errorCount = ref(0)
 const handleImageError = (event: Event) => {
   const img = event.target as HTMLImageElement
   errorCount.value++
-  if (errorCount.value <= 1 && props.photoUrl) {
+  // 先取到局部常量：setTimeout 回调里 props 可能已变更/卸载，TS 也会认为可能为 undefined
+  const url = props.photoUrl
+  if (errorCount.value <= 1 && url) {
     // 第一次失败: 重试一次 (可能网络抖动)
-    setTimeout(() => { img.src = props.photoUrl + (props.photoUrl.includes('?') ? '&' : '?') + '_retry=' + Date.now() }, 1000)
+    setTimeout(() => { img.src = url + (url.includes('?') ? '&' : '?') + '_retry=' + Date.now() }, 1000)
   } else {
     // 第二次失败: 永久使用渐变色占位
     img.src = fallbackSvg.value

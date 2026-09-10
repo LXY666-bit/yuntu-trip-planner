@@ -94,7 +94,7 @@ const rawTimelineItems = computed<TimelineItem[]>(() => {
   const breakfast = meals.find(m => m.type === 'breakfast')
   if (breakfast) {
     const route = findRouteSegment(routeSegs, hotelName, breakfast.name)
-    const travelMin = route ? parseDuration(route.duration) : 15
+    const travelMin = route ? parseDuration(route.duration, route.distance, route.mode) : 15
     const detail = route?.detail || '前往早餐地点'
     const mode = route?.mode
     const distance = route?.distance
@@ -111,7 +111,7 @@ const rawTimelineItems = computed<TimelineItem[]>(() => {
 
     if (i === 0 && breakfast) {
       const route = findRouteSegment(routeSegs, breakfast.name, attr.name)
-      const travelMin = route ? parseDuration(route.duration) : 20
+      const travelMin = route ? parseDuration(route.duration, route.distance, route.mode) : 20
       const detail = route?.detail || `前往${attr.name}`
       const mode = route?.mode
       const distance = route?.distance
@@ -120,7 +120,7 @@ const rawTimelineItems = computed<TimelineItem[]>(() => {
     } else if (i > 0) {
       const prevAttr = attractions[i - 1]
       const route = findRouteSegment(routeSegs, prevAttr.name, attr.name)
-      const travelMin = route ? parseDuration(route.duration) : 25
+      const travelMin = route ? parseDuration(route.duration, route.distance, route.mode) : 25
       const detail = route?.detail || `从${prevAttr.name}前往${attr.name}`
       const mode = route?.mode
       const distance = route?.distance
@@ -128,7 +128,7 @@ const rawTimelineItems = computed<TimelineItem[]>(() => {
       currentMinutes += travelMin
     } else {
       const route = findRouteSegment(routeSegs, hotelName, attr.name)
-      const travelMin = route ? parseDuration(route.duration) : 30
+      const travelMin = route ? parseDuration(route.duration, route.distance, route.mode) : 30
       const detail = route?.detail || '从酒店出发'
       const mode = route?.mode
       const distance = route?.distance
@@ -157,7 +157,7 @@ const rawTimelineItems = computed<TimelineItem[]>(() => {
   if (dinner) {
     const lastAttr = attractions[attractions.length - 1]
     const route = lastAttr ? findRouteSegment(routeSegs, lastAttr.name, dinner.name) : undefined
-    const travelToDinner = route ? parseDuration(route.duration) : 20
+    const travelToDinner = route ? parseDuration(route.duration, route.distance, route.mode) : 20
     const detail = route?.detail || '前往餐厅'
     const mode = route?.mode
     const distance = route?.distance
@@ -263,15 +263,44 @@ function makeItem(type: TimelineItem['type'], name: string, startMin: number, du
 }
 
 function formatTime(minutes: number): string {
-  const h = Math.floor(minutes / 60)
-  const m = minutes % 60
+  const total = Math.max(0, Math.round(minutes))
+  const h = Math.floor(total / 60) % 24
+  const m = total % 60
   return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`
 }
 
-function parseDuration(durStr?: string): number {
-  if (!durStr) return 25
-  const match = durStr.match(/(\d+)/)
-  return match ? Math.max(parseInt(match[1]), 10) : 25
+function parseDistanceKm(distStr?: string): number | null {
+  if (!distStr) return null
+  const m = distStr.match(/([\d.]+)\s*(公里|千米|km|米|m)?/i)
+  if (!m) return null
+  const v = parseFloat(m[1])
+  if (!Number.isFinite(v) || v <= 0) return null
+  const unit = (m[2] || '公里').toLowerCase()
+  return unit === '米' || unit === 'm' ? v / 1000 : v
+}
+
+const MODE_MINUTES_PER_KM: Record<string, number> = {
+  '步行': 13, '骑行': 4.5, '公交': 3.2, '地铁': 2.8, '驾车': 2.5, '出租车': 2.5,
+}
+
+/**
+ * 解析路线时长(分钟)。
+ * 历史数据中存在高德公交返回跨城方案导致的爆炸值(如 1531 分钟),
+ * 这里结合距离按交通方式做距离感知钳制; 无距离时按方式上限截断。
+ */
+function parseDuration(durStr?: string, distStr?: string, mode?: string): number {
+  const m = durStr?.match(/(\d+)/)
+  let minutes = m ? parseInt(m[1]) : 25
+  if (!Number.isFinite(minutes) || minutes <= 0) minutes = 25
+
+  const km = parseDistanceKm(distStr)
+  if (km != null) {
+    const expected = km * (MODE_MINUTES_PER_KM[mode || ''] ?? 3.2)
+    minutes = Math.min(minutes, Math.max(10, expected * 1.8))
+  } else if (minutes > 120) {
+    minutes = mode === '步行' ? 60 : 90
+  }
+  return Math.max(10, Math.round(minutes))
 }
 
 function getIcon(type: string): string {

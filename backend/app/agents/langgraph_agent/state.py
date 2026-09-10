@@ -12,7 +12,7 @@ class DiscoveryState(TypedDict):
     raw_search_results: str
     extracted_pois: List[dict]
     discovered_attractions: Annotated[List[dict], operator.add]
-    weather_info: str
+    weather_info: Any
     errors: List[str]
     messages: Annotated[List[BaseMessage], operator.add]
     user_id: str
@@ -25,7 +25,7 @@ class TripPlannerState(TypedDict):
     attractions_info: str
     raw_search_results: str
     selected_pois: List[dict]
-    weather_info: str
+    weather_info: Any  # List[WeatherInfo dict] 逐日预报（search_weather_node 产物）
     hotels_info: str
     aigohotel_raw_results: str
     selected_hotels: List[dict]

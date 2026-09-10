@@ -1,28 +1,33 @@
 <template>
   <div class="landing-page">
-    <div class="page-header section-dark landing-header">
-      <div class="filter"></div>
-      <div class="content-center">
-        <div class="container">
-          <div class="title-brand">
-            <h1 class="presentation-title">YUNTU</h1>
-            <div class="title-underline"></div>
-          </div>
-          <h2 class="presentation-subtitle text-center">云途 · AI 驱动的个性化旅行规划</h2>
-        </div>
+    <aside class="travel-intro">
+      <div class="eyebrow"><span class="intro-dot"></span> YOUR NEXT CHAPTER</div>
+      <h1>把向往的远方，<br>变成下一站。</h1>
+      <p class="intro-description">告诉云途你想去的地方。一起发现值得停留的风景，安排刚刚好的旅行节奏。</p>
+      <div class="intro-features"><span>精选目的地</span><span>个性化推荐</span><span>灵活调整</span></div>
+      <div class="journey-preview" aria-label="旅行规划流程示意">
+        <div class="preview-heading"><span>一段旅程，从这里开始</span><span class="preview-stamp">YUNTU / 旅途手记</span></div>
+        <svg class="journey-drawing" viewBox="0 0 430 210" role="img" aria-label="从城市漫步到山野日落的旅行路线">
+          <path d="M0 165 Q80 115 155 160 T300 140 T430 150 L430 210 L0 210Z" fill="currentColor" opacity=".05"/>
+          <path d="M270 125 L320 40 L370 125 M302 70 L320 82 L335 65" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".3"/>
+          <circle cx="370" cy="44" r="14" fill="#d89c72" opacity=".5"/>
+          <path d="M55 147 C110 147 65 58 143 67 S240 175 279 143 S340 158 371 128" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4 6" opacity=".5"/>
+          <g fill="var(--color-bg-card)" stroke="currentColor" stroke-width="1.5"><circle cx="55" cy="147" r="9"/><circle cx="143" cy="67" r="9"/><circle cx="279" cy="143" r="9"/></g>
+          <g fill="currentColor"><circle cx="55" cy="147" r="3"/><circle cx="143" cy="67" r="3"/><circle cx="279" cy="143" r="3"/></g>
+          <g fill="currentColor" font-size="11" font-family="sans-serif"><text x="28" y="178">城市漫步</text><text x="118" y="42">在地寻味</text><text x="254" y="178">山野日落</text></g>
+        </svg>
+        <div class="preview-footer"><span>去发现，也留一点时间给偶遇。</span><span>↗</span></div>
       </div>
-      <div class="moving-clouds"></div>
-      <div class="fog-low">
-        <img src="https://demos.creative-tim.com/paper-kit-2/assets/img/clouds.png" alt="fog" />
-      </div>
-      <div class="fog-low right">
-        <img src="https://demos.creative-tim.com/paper-kit-2/assets/img/clouds.png" alt="fog" />
-      </div>
-      <div class="hero-bottom-shade"></div>
-    </div>
+      <ol class="intro-steps">
+        <li><span>01</span><div><strong>说说你的旅行</strong><p>目的地、时间，以及你的偏好</p></div></li>
+        <li><span>02</span><div><strong>挑选心动的景点</strong><p>AI 给出建议，选择权在你</p></div></li>
+        <li><span>03</span><div><strong>带上行程，出发</strong><p>调整每日安排，保存或导出</p></div></li>
+      </ol>
+    </aside>
 
     <section class="form-section" ref="formRef">
       <div class="form-panel" ref="panelRef">
+        <div class="form-intro"><span class="eyebrow">LET’S PLAN</span><h2>开启你的下一段旅程</h2><p>花一点时间，规划一场喜欢的旅行。</p></div>
         <a-form v-show="!loading" :model="formData" layout="vertical" @finish="handleSubmit">
           <!-- Step 01: Destination & Date -->
           <div class="step">
@@ -33,17 +38,17 @@
 
             <div class="city-list">
               <div v-for="(cs, idx) in formData.cities" :key="idx" class="city-row">
-                <a-form-item class="city-row-name" :rules="[{ required: true, message: '请输入城市名' }]">
+                <a-form-item class="city-row-name" :name="['cities', idx, 'city']" :rules="[{ required: true, message: '请输入城市名' }]">
                   <template #label>
                     <span class="field-label">城市 {{ idx + 1 }}</span>
                   </template>
-                  <a-input v-model:value="cs.city" placeholder="输入城市名，如北京" size="large" class="field-input" />
+                  <a-input v-model:value="cs.city" :aria-label="`城市 ${idx + 1}`" placeholder="输入城市名，如北京" size="large" class="field-input" />
                 </a-form-item>
                 <a-form-item class="city-row-days">
                   <template #label><span class="field-label">停留天数</span></template>
                   <a-input-number v-model:value="cs.days" :min="1" :max="15" size="large" class="field-input" style="width:100%" />
                 </a-form-item>
-                <button v-if="formData.cities.length > 1" type="button" class="city-remove-btn" @click="removeCity(idx)">×</button>
+                <button v-if="formData.cities.length > 1" type="button" :aria-label="`移除城市 ${idx + 1}`" class="city-remove-btn" @click="removeCity(idx)">×</button>
               </div>
               <button type="button" class="city-add-btn" @click="addCity">+ 添加城市</button>
             </div>
@@ -51,13 +56,16 @@
             <div class="grid grid-date">
               <a-form-item name="start_date" :rules="[{ required: true, message: '请选择日期' }]">
                 <template #label><span class="field-label">出发日期</span></template>
-                <a-date-picker v-model:value="formData.start_date" style="width:100%" size="large" class="field-input" placeholder="选择出发日期" />
+                <a-date-picker v-model:value="formData.start_date" value-format="YYYY-MM-DD" style="width:100%" size="large" class="field-input" placeholder="选择出发日期" />
               </a-form-item>
               <a-form-item>
                 <template #label><span class="field-label">总天数</span></template>
                 <div class="days-chip">
                   <span class="days-number">{{ totalDays }}</span>
                   <span class="days-unit">天</span>
+                </div>
+                <div v-if="dateRangePreview" class="date-range-preview">
+                  {{ dateRangePreview }}
                 </div>
               </a-form-item>
             </div>
@@ -98,16 +106,17 @@
             <a-form-item name="preferences">
               <template #label><span class="field-label">兴趣标签</span></template>
               <div class="interest-grid">
-                <label
+                <button type="button"
                   v-for="item in interestOptions"
                   :key="item.value"
                   class="interest-pill"
                   :class="{ active: formData.preferences.includes(item.value) }"
-                  @click.prevent="togglePreference(item.value)"
+                  :aria-pressed="formData.preferences.includes(item.value)"
+                  @click="togglePreference(item.value)"
                 >
                   <span class="interest-emoji">{{ item.emoji }}</span>
                   {{ item.label }}
-                </label>
+                </button>
               </div>
             </a-form-item>
 
@@ -160,7 +169,7 @@
 
           <a-form-item>
             <button type="submit" class="btn btn-danger btn-round submit-btn" :class="{ loading }" :disabled="loading">
-              <span v-if="!loading">开始规划行程</span>
+              <span v-if="!loading">发现我的旅行灵感 <span aria-hidden="true">↗</span></span>
               <span v-else class="loading-row">
                 <i class="spinner"></i> 生成中...
               </span>
@@ -190,9 +199,9 @@
 
     <footer class="landing-footer">
       <div class="footer-inner">
-        <span>云途 YunTu &copy; 2025</span>
+        <span>云途 YunTu &copy; {{ new Date().getFullYear() }}</span>
         <span class="footer-dot">·</span>
-        <span>基于 AI + LangGraph 技术驱动</span>
+        <span>让每一次出发，都更从容</span>
       </div>
     </footer>
   </div>
@@ -202,7 +211,8 @@
 import { ref, reactive, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
-import type { TripFormData } from '@/types'
+import { tripEndDate } from '@/composables/tripDates'
+import type { TripFormState } from '@/types'
 
 const router = useRouter()
 const formRef = ref<HTMLElement | null>(null)
@@ -224,7 +234,7 @@ const interestOptions = [
   { value: '户外运动', label: '户外运动', emoji: '🏃' },
 ]
 
-const formData = reactive<TripFormData>({
+const formData = reactive<TripFormState>({
   city: '',
   cities: [{ city: '', days: 3 }],
   start_date: '',
@@ -241,6 +251,17 @@ const formData = reactive<TripFormData>({
 
 const totalDays = computed(() => {
   return formData.cities.reduce((sum, c) => sum + (c.days || 0), 0)
+})
+
+/** 实时日期范围预览："6月1日 - 6月3日 · 共3天"，让用户在提交前看到结束日期 */
+const dateRangePreview = computed(() => {
+  if (!formData.start_date) return ''
+  const start = new Date(formData.start_date)
+  if (Number.isNaN(start.getTime())) return ''
+  const end = new Date(start)
+  end.setDate(start.getDate() + Math.max(totalDays.value, 1) - 1)
+  const fmt = (d: Date) => `${d.getMonth() + 1}月${d.getDate()}日`
+  return `${fmt(start)} - ${fmt(end)} · 共${totalDays.value}天`
 })
 
 const loadingSteps = ref([
@@ -266,8 +287,8 @@ function togglePreference(val: string) {
 
 async function handleSubmit() {
   const firstCity = formData.cities[0]
-  if (!firstCity || !firstCity.city.trim()) {
-    message.error('请至少输入一个目的地城市')
+  if (!firstCity || formData.cities.some(c => !c.city.trim())) {
+    message.error('请填写每一站的目的地城市')
     return
   }
   if (!formData.start_date) {
@@ -279,13 +300,15 @@ async function handleSubmit() {
     return
   }
 
+  if (formData.cities.some(c => !Number.isInteger(c.days) || c.days < 1) || totalDays.value > 30) {
+    message.error('每站至少停留 1 天，行程总天数不能超过 30 天')
+    return
+  }
+  formData.cities = formData.cities.map(c => ({ ...c, city: c.city.trim() }))
   formData.city = firstCity.city.trim()
   formData.travel_days = totalDays.value
 
-  const startDate = new Date(formData.start_date)
-  const endDate = new Date(startDate)
-  endDate.setDate(endDate.getDate() + totalDays.value - 1)
-  formData.end_date = endDate.toISOString().split('T')[0]
+  formData.end_date = tripEndDate(formData.start_date, totalDays.value)
 
   // 存入 sessionStorage，跳转发现页开始景点选择
   sessionStorage.setItem('tripFormData', JSON.stringify(formData))
@@ -294,405 +317,77 @@ async function handleSubmit() {
 </script>
 
 <style scoped>
-/* === Hero Section === */
-.landing-header {
-  position: relative;
-  min-height: 520px;
-  background: linear-gradient(135deg, #1a0a2e 0%, #16213e 50%, #0f3460 100%);
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.landing-page { max-width: 1280px; margin: auto; padding: 108px 36px 28px; display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 64px; align-items: start; }
+/* 侧栏(约845px)高于多数视口: 只有视口足够高时才启用 sticky, 否则吸附元素底部会溢出网格与 footer 重叠 */
+.travel-intro { position: relative; }
+@media (min-height: 1000px) {
+  .travel-intro { position: sticky; top: 102px; }
 }
-
-.filter {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-  z-index: 1;
-}
-
-.content-center {
-  position: relative;
-  z-index: 2;
-  text-align: center;
-  padding: 0 24px;
-}
-
-.title-brand {
-  margin-bottom: 16px;
-}
-
-.presentation-title {
-  font-size: 5em;
-  font-weight: 700;
-  color: #fff;
-  letter-spacing: 0.08em;
-  margin: 0;
-  text-shadow: 0 2px 30px rgba(245, 89, 61, 0.4);
-  background: linear-gradient(135deg, #fff 0%, #f7765f 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.title-underline {
-  width: 80px;
-  height: 3px;
-  background: var(--color-primary);
-  margin: 16px auto 0;
-  border-radius: 2px;
-}
-
-.presentation-subtitle {
-  font-size: 1.2em;
-  font-weight: 300;
-  color: rgba(255, 255, 255, 0.75);
-  margin-top: 16px;
-}
-
-.moving-clouds {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 120px;
-  background: url(https://demos.creative-tim.com/paper-kit-2/assets/img/clouds.png) repeat-x;
-  background-size: 1000px;
-  opacity: 0.15;
-  z-index: 1;
-  animation: moveClouds 60s linear infinite;
-}
-
-.fog-low {
-  position: absolute;
-  bottom: -40px;
-  left: 0;
-  width: 60%;
-  opacity: 0.08;
-  z-index: 1;
-}
-
-.fog-low.right {
-  left: auto;
-  right: 0;
-  bottom: -60px;
-}
-
-.hero-bottom-shade {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 120px;
-  background: linear-gradient(to top, var(--color-bg-secondary), transparent);
-  z-index: 2;
-}
-
-@keyframes moveClouds {
-  from { background-position: 0 0; }
-  to { background-position: 1000px 0; }
-}
-
-/* === Form Section === */
-.form-section {
-  position: relative;
-  z-index: 3;
-  max-width: 1100px;
-  margin: -60px auto 60px;
-  padding: 0 24px;
-}
-
-.form-panel {
-  background: var(--color-bg-card);
-  border-radius: var(--border-radius-lg);
-  box-shadow: var(--shadow-lg);
-  padding: 48px;
-  transition: var(--transition-normal);
-}
-
-/* The form uses a 2-column layout for fields */
-@media (min-width: 769px) {
-  .form-panel {
-    padding: 56px;
-  }
-
-  .step-content-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 24px;
-  }
-
-  .step-content-row .full-width {
-    grid-column: 1 / -1;
-  }
-}
-
-.step {
-  padding: 24px 0;
-  border-bottom: 1px solid var(--color-border-light);
-}
-
-.step:last-child { border-bottom: none; }
-
-.step-head {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-bottom: 24px;
-}
-
-.step-num {
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-primary);
-  color: #fff;
-  border-radius: 50%;
-  font-weight: 700;
-  font-size: 16px;
-  flex-shrink: 0;
-}
-
-.step-head h3 {
-  margin: 0;
-  font-size: 1.3em;
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-.field-label {
-  font-weight: 600;
-  font-size: 13px;
-  color: var(--color-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-/* City list */
-.city-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
-
-.city-row {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-}
-
-.city-row-name { flex: 1; margin-bottom: 0; }
-.city-row-days { width: 120px; margin-bottom: 0; }
-
-.city-remove-btn {
-  margin-top: 30px;
-  width: 28px; height: 28px;
-  border: none;
-  border-radius: 50%;
-  background: rgba(245, 89, 61, 0.12);
-  color: var(--color-primary);
-  font-size: 16px;
-  cursor: pointer;
-  transition: var(--transition-fast);
-  flex-shrink: 0;
-}
-.city-remove-btn:hover { background: var(--color-primary); color: #fff; }
-
-.city-add-btn {
-  background: none;
-  border: 1px dashed var(--color-border);
-  border-radius: 8px;
-  color: var(--color-primary);
-  font-size: 13px;
-  font-weight: 600;
-  padding: 10px;
-  cursor: pointer;
-  transition: var(--transition-fast);
-}
-.city-add-btn:hover { border-color: var(--color-primary); background: var(--color-primary-soft); }
-
-.hot-cities-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 12px;
-}
-.hot-label { font-size: 12px; color: var(--color-text-tertiary); font-weight: 500; }
-.hot-city-tag {
-  border: 1px solid var(--color-border);
-  border-radius: 16px;
-  background: transparent;
-  color: var(--color-text-secondary);
-  font-size: 12px;
-  padding: 4px 12px;
-  cursor: pointer;
-  transition: var(--transition-fast);
-  font-family: var(--font-family-base);
-}
-.hot-city-tag:hover { border-color: var(--color-primary); color: var(--color-primary); }
-
-/* Grids */
-.grid { display: grid; gap: 20px; }
-.grid-date { grid-template-columns: 1fr 120px; }
-.grid2 { grid-template-columns: 1fr 1fr; }
-.grid3 { grid-template-columns: 1fr 1fr 1fr; }
-
-.days-chip {
-  display: flex;
-  align-items: baseline;
-  gap: 4px;
-  padding: 7px 16px;
-  background: var(--color-primary-soft);
-  border-radius: 8px;
-  height: 40px;
-}
-.days-number { font-size: 24px; font-weight: 700; color: var(--color-primary); }
-.days-unit { font-size: 14px; color: var(--color-text-tertiary); }
-
-/* Interest pills */
-.interest-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.interest-pill {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 8px 18px;
-  border: 2px solid var(--color-border);
-  border-radius: 24px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  transition: var(--transition-fast);
-  user-select: none;
-  background: transparent;
-}
-.interest-pill:hover { border-color: var(--color-primary); color: var(--color-primary); }
-.interest-pill.active {
-  background: var(--color-primary);
-  color: #fff;
-  border-color: var(--color-primary);
-}
-
-.interest-emoji { font-size: 16px; }
-
-/* Textarea */
-.field-textarea { margin-top: 4px; }
-
-.special-textarea {
-  border-radius: 8px !important;
-  border: 1px solid var(--color-border) !important;
-  font-family: var(--font-family-base) !important;
-  transition: var(--transition-normal) !important;
-}
-.special-textarea:focus { border-color: var(--color-primary) !important; box-shadow: 0 0 0 2px var(--color-primary-soft) !important; }
-
-/* Submit btn */
-.submit-btn {
-  width: 100%;
-  padding: 14px 32px !important;
-  font-size: 15px !important;
-  font-weight: 700 !important;
-  letter-spacing: 1px;
-  background: linear-gradient(135deg, #f5593d, #f33816) !important;
-  border: none !important;
-  margin-top: 16px;
-  transition: var(--transition-normal) !important;
-  color: #fff !important;
-}
-.submit-btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(245, 89, 61, 0.4);
-}
-.submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-
-.loading-row { display: flex; align-items: center; justify-content: center; gap: 8px; }
-
-.spinner {
-  width: 18px; height: 18px;
-  border: 2px solid rgba(255,255,255,0.3);
-  border-top-color: #fff;
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-  display: inline-block;
-}
-
-/* Stepper */
-.stepper-wrapper { padding: 20px 0; text-align: center; }
-.stepper-title { font-size: 1.4em; font-weight: 600; margin: 0; color: var(--color-text-primary); }
-.stepper-subtitle { color: var(--color-text-tertiary); margin: 8px 0 32px; font-size: 14px; }
-
-.stepper-container {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  max-width: 360px;
-  margin: 0 auto;
-}
-
-.step-node {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  opacity: 0.3;
-  transition: var(--transition-normal);
-}
-.step-node.active, .step-node.completed { opacity: 1; }
-
-.node-icon {
-  width: 40px; height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0,0,0,0.05);
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-[data-theme="dark"] .node-icon { background: rgba(255,255,255,0.06); }
-
-.node-dot { width: 8px; height: 8px; background: var(--color-border); border-radius: 50%; }
-.active .node-dot { background: var(--color-primary); animation: pulse 1.5s ease infinite; }
-
-.spinner-small {
-  width: 18px; height: 18px;
-  border: 2px solid rgba(245, 89, 61, 0.2);
-  border-top-color: var(--color-primary);
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-  display: inline-block;
-}
-
-.node-text { font-size: 14px; font-weight: 500; color: var(--color-text-secondary); margin: 0; }
-
-/* Footer */
-.landing-footer {
-  text-align: center;
-  padding: 32px;
-  color: var(--color-text-tertiary);
-  font-size: 13px;
-  border-top: 1px solid var(--color-border-light);
-}
-.footer-dot { margin: 0 8px; opacity: 0.4; }
-
-@keyframes spin { to { transform: rotate(360deg); } }
-
-/* Responsive */
-@media (max-width: 768px) {
-  .landing-header { min-height: 360px; }
-  .presentation-title { font-size: 3em; }
-  .presentation-subtitle { font-size: 1em; }
-  .form-panel { padding: 24px; }
-  .grid-date, .grid2, .grid3 { grid-template-columns: 1fr; }
-  .city-row { flex-direction: column; }
-  .city-row-days { width: 100%; }
-}
-
-@media (min-width: 1400px) {
-  .form-section { max-width: 1200px; }
-  .form-panel { padding: 64px 72px; }
+.travel-intro > .eyebrow { display: flex; align-items: center; gap: 8px; }
+.intro-dot { width: 6px; height: 6px; background: var(--color-primary); border-radius: 50%; }
+.travel-intro h1 { font-size: clamp(34px, 3.5vw, 49px); font-weight: 650; letter-spacing: -1.5px; line-height: 1.45; margin: 22px 0; }
+.intro-description { max-width: 370px; color: var(--color-text-secondary); font-size: 15px; line-height: 1.9; }
+.intro-features { display: flex; gap: 20px; font-size: 12px; color: var(--color-text-secondary); margin: 22px 0 32px; }
+.intro-features span::before { content: '✓'; margin-right: 6px; color: var(--color-primary); }
+.journey-preview { color: var(--color-primary); border: 1px solid var(--color-border); border-radius: 16px; background: var(--color-bg-card); overflow: hidden; transform: rotate(-1.5deg); box-shadow: 0 8px 24px rgba(23,53,43,.04); }
+.preview-heading { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding: 20px 22px 0; font-size: 12px; }
+.preview-stamp { color: var(--color-text-tertiary); font-size: 9px; letter-spacing: 1px; }
+.journey-drawing { display: block; width: 100%; }
+.preview-footer { display: flex; justify-content: space-between; border-top: 1px dashed var(--color-border); padding: 14px 22px; font-size: 11px; color: var(--color-text-secondary); }
+.intro-steps { display: flex; flex-direction: column; gap: 18px; margin: 32px 0 0; padding: 0; list-style: none; }
+.intro-steps li { display: flex; gap: 15px; align-items: baseline; }
+.intro-steps li > span { color: var(--color-accent); font-size: 11px; font-weight: 600; }
+.intro-steps strong { font-size: 13px; font-weight: 550; }
+.intro-steps p { font-size: 12px; color: var(--color-text-tertiary); margin: 4px 0 0; }
+.form-section { min-width: 0; }
+.form-panel { padding: 32px; background: var(--color-bg-card); border: 1px solid var(--color-border-light); border-radius: 20px; box-shadow: 0 8px 40px rgba(23,53,43,.04); }
+.form-intro { border-bottom: 1px solid var(--color-border-light); padding-bottom: 22px; }
+.form-intro h2 { font-size: 23px; font-weight: 600; margin: 8px 0; letter-spacing: -.5px; }
+.form-intro p { font-size: 13px; color: var(--color-text-tertiary); margin: 0; }
+.step { padding: 26px 0 12px; border-bottom: 1px solid var(--color-border-light); }
+.step-head { display: flex; gap: 10px; align-items: center; margin-bottom: 22px; }
+.step-head h3 { margin: 0; font-size: 15px; font-weight: 600; }
+.step-num { color: var(--color-primary); font-size: 11px; font-weight: 650; background: var(--color-primary-soft); padding: 5px 7px; border-radius: 6px; }
+.field-label { color: var(--color-text-secondary); font-size: 12px; font-weight: 500; }
+.city-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
+.city-row { display: flex; gap: 12px; align-items: flex-start; }
+.city-row-name { flex: 1; min-width: 0; margin-bottom: 0; }
+.city-row-days { width: 106px; margin-bottom: 0; }
+.city-remove-btn { margin-top: 32px; border: 0; background: var(--color-bg-secondary); color: var(--color-text-secondary); width: 28px; height: 32px; border-radius: 6px; cursor: pointer; flex: none; }
+.city-add-btn { border: 1px dashed var(--color-border); background: transparent; color: var(--color-primary); padding: 9px; font-size: 12px; border-radius: 8px; cursor: pointer; }
+.grid { display: grid; gap: 16px; }
+.grid-date { grid-template-columns: minmax(0, 1fr) minmax(110px, .55fr); }
+.grid2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.days-chip { display: flex; height: 44px; align-items: baseline; gap: 6px; padding: 6px 14px; background: var(--color-bg-secondary); border-radius: 8px; }
+.days-number { font-weight: 600; font-size: 22px; color: var(--color-primary); }
+.days-unit { font-size: 12px; }
+.date-range-preview { font-size: 11px; color: var(--color-text-tertiary); margin-top: 5px; }
+.hot-cities-row { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; margin: 0 0 10px; }
+.hot-label { font-size: 11px; color: var(--color-text-tertiary); }
+.hot-city-tag { border: 0; background: var(--color-bg-secondary); color: var(--color-text-secondary); font-size: 11px; padding: 5px 10px; border-radius: 5px; cursor: pointer; }
+.hot-city-tag:hover, .city-add-btn:hover { background: var(--color-primary-soft); color: var(--color-primary); }
+.interest-grid { display: flex; gap: 8px; flex-wrap: wrap; }
+.interest-pill { border: 1px solid var(--color-border); border-radius: 7px; background: transparent; color: var(--color-text-secondary); padding: 7px 10px; font-size: 12px; cursor: pointer; }
+.interest-pill.active { color: var(--color-primary); border-color: var(--color-primary); background: var(--color-primary-soft); }
+.interest-emoji { margin-right: 4px; font-size: 12px; }
+.special-textarea { font-size: 13px; }
+.submit-btn { width: 100%; margin-top: 24px; padding: 13px 20px; border: 0; border-radius: 10px; background: var(--color-primary); color: var(--color-text-inverse); font-size: 14px; font-weight: 600; cursor: pointer; }
+.submit-btn > span { display: flex; align-items: center; justify-content: space-between; }
+.submit-btn:hover { background: var(--color-primary-hover); }
+.landing-footer { grid-column: 1 / -1; padding: 26px 0; border-top: 1px solid var(--color-border); font-size: 11px; color: var(--color-text-tertiary); }
+.footer-inner { display: flex; justify-content: space-between; gap: 12px; }
+.footer-dot { display: none; }
+@media (max-width: 1000px) { .landing-page { gap: 32px; padding: 88px 24px 0; } .form-panel { padding: 24px; } .intro-features { gap: 12px; } }
+@media (max-width: 760px) {
+  .landing-page { display: block; padding: 84px 16px 0; }
+  .travel-intro { position: static; padding: 0 8px; }
+  .travel-intro h1 { font-size: 34px; margin: 16px 0; }
+  .intro-description { max-width: 100%; font-size: 14px; }
+  .journey-preview, .intro-steps { display: none; }
+  .intro-features { margin: 18px 0 26px; }
+  .form-panel { padding: 24px 20px; border-radius: 16px; }
+  .form-intro h2 { font-size: 21px; }
+  .landing-footer { margin-top: 32px; }
+  .city-row-days { width: 88px; }
 }
 </style>

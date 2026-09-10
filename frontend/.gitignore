@@ -27,3 +27,8 @@ dist-ssr
 .env.local
 .env.*.local
 
+
+# Environment files (keep .env.example tracked)
+.env
+.env.*
+!.env.example

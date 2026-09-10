@@ -103,6 +103,22 @@ async def delete_trip(trip_id: int) -> bool:
         return True
 
 
+async def update_trip_plan(trip_id: int, plan: TripPlan) -> Optional[TripRecord]:
+    async with async_session() as session:
+        record = await session.get(TripRecord, trip_id)
+        if record is None:
+            return None
+        record.plan_data = json.dumps(plan.model_dump(mode="json"), ensure_ascii=False)
+        record.city = plan.city
+        record.start_date = plan.start_date
+        record.end_date = plan.end_date
+        record.travel_days = len(plan.days)
+        record.total_cost = plan.budget.total if plan.budget else 0
+        await session.commit()
+        await session.refresh(record)
+        return record
+
+
 async def update_trip_status(trip_id: int, status: str) -> Optional[TripRecord]:
     async with async_session() as session:
         result = await session.execute(select(TripRecord).where(TripRecord.id == trip_id))

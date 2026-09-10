@@ -12,5 +12,3 @@ declare module '*.css' {
 }
 
 declare module 'ant-design-vue/dist/reset.css'
-
-declare module 'swiper/css'

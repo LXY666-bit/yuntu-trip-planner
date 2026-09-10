@@ -33,13 +33,13 @@
       <div class="hotel-price-section">
         <div v-if="hotel.price" class="price-main">
           <span class="price-currency">{{ hotel.currency || 'CNY' }}</span>
-          <span class="price-value">¥{{ Math.round(hotel.price) }}</span>
+          <span class="price-value">{{ formatCurrency(hotel.price) }}</span>
           <span class="price-unit">/晚</span>
           <span v-if="hotel.original_price && hotel.original_price > hotel.price" class="price-original">
-            ¥{{ Math.round(hotel.original_price) }}
+            {{ formatCurrency(hotel.original_price) }}
           </span>
           <span v-if="hotel.original_price && hotel.original_price > hotel.price" class="price-save">
-            省¥{{ Math.round(hotel.original_price - hotel.price) }}
+            省{{ formatCurrency(hotel.original_price - hotel.price) }}
           </span>
         </div>
         <div v-else-if="hotel.price_range" class="price-main">
@@ -119,6 +119,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import type { Hotel } from '@/types'
+import { formatCurrency } from '@/composables/useFormat'
 
 const props = defineProps<{
   hotel: Hotel

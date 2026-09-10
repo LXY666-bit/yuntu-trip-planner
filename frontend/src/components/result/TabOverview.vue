@@ -1,27 +1,13 @@
 <template>
   <div class="tab-overview">
-    <!-- Attraction Image Carousel (Swiper Coverflow) -->
+    <!-- 景点叠层轮播 -->
     <div v-if="overviewAttractions.length > 0" class="overview-swiper-section">
       <h3 class="section-title">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
         景点概览
         <span class="title-count">{{ overviewAttractions.length }} 个景点</span>
       </h3>
-      <div ref="swiperContainerRef" class="overview-swiper">
-        <div class="swiper">
-          <div class="swiper-wrapper">
-            <OverviewAttractionCard
-              v-for="(item, index) in overviewAttractions"
-              :key="`${item.dayArrayIndex}-${item.order}-${item.name}`"
-              :item="item"
-              :image-src="getAttractionImage(item.name)"
-              :active="activeOverviewCard === index"
-              @hover="activeOverviewCard = index"
-              @select-day="goToDay(item.dayArrayIndex)"
-            />
-          </div>
-        </div>
-      </div>
+      <AttractionCarousel :items="overviewAttractions" :photos="{ ...attractionPhotos, ...imageCache }" @select-day="goToDay" />
     </div>
 
     <!-- Trip Meta -->
@@ -66,14 +52,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { marked } from 'marked'
+import DOMPurify from 'dompurify'
 import type { TripPlan } from '@/types'
-import OverviewAttractionCard from '@/components/OverviewAttractionCard.vue'
+import AttractionCarousel from '@/components/result/AttractionCarousel.vue'
 import type { OverviewAttractionItem } from '@/components/OverviewAttractionCard.vue'
-import Swiper from 'swiper'
-import { EffectCoverflow, Keyboard, Mousewheel } from 'swiper/modules'
-import 'swiper/css'
 
 const props = defineProps<{
   tripPlan: TripPlan
@@ -84,10 +68,7 @@ const emit = defineEmits<{
   (e: 'goToDay', dayIndex: number): void
 }>()
 
-const swiperContainerRef = ref<HTMLElement | null>(null)
-const activeOverviewCard = ref(0)
 const imageCache = ref<Record<string, string>>({})
-let overviewSwiper: Swiper | null = null
 
 const overviewAttractions = computed<OverviewAttractionItem[]>(() => {
   const result: OverviewAttractionItem[] = []
@@ -108,10 +89,6 @@ const overviewAttractions = computed<OverviewAttractionItem[]>(() => {
   return result
 })
 
-function getAttractionImage(name: string): string {
-  return imageCache.value[name] || props.attractionPhotos[name] || ''
-}
-
 function goToDay(dayIndex: number) {
   emit('goToDay', dayIndex)
 }
@@ -131,46 +108,13 @@ async function loadImages() {
   }))
 }
 
-onMounted(() => {
-  loadImages()
-  if (swiperContainerRef.value) {
-    overviewSwiper = new Swiper(swiperContainerRef.value.querySelector('.swiper') as HTMLElement, {
-      modules: [EffectCoverflow, Keyboard, Mousewheel],
-      effect: 'coverflow',
-      grabCursor: true,
-      centeredSlides: true,
-      coverflowEffect: {
-        rotate: 0,
-        stretch: 0,
-        depth: 100,
-        modifier: 2.5,
-      },
-      keyboard: { enabled: true },
-      mousewheel: { thresholdDelta: 70 },
-      spaceBetween: 24,
-      slidesPerView: 3,
-      breakpoints: {
-        640: { slidesPerView: 3 },
-        1024: { slidesPerView: 4 },
-      },
-      on: {
-        slideChange: (swiper) => { activeOverviewCard.value = swiper.activeIndex },
-      },
-    })
-    overviewSwiper.slideTo(1, 0)
-  }
-})
-
-onUnmounted(() => {
-  overviewSwiper?.destroy()
-  overviewSwiper = null
-})
+onMounted(loadImages)
 
 marked.setOptions({ breaks: true, gfm: true })
 
 const renderedSuggestions = computed(() => {
   if (!props.tripPlan.overall_suggestions) return ''
-  return marked.parse(props.tripPlan.overall_suggestions) as string
+  return DOMPurify.sanitize(marked.parse(props.tripPlan.overall_suggestions) as string)
 })
 </script>
 
@@ -206,23 +150,6 @@ const renderedSuggestions = computed(() => {
   border-radius: 12px;
   padding: 24px;
   box-shadow: var(--shadow-md);
-}
-
-.overview-swiper {
-  padding: 8px 2px 10px;
-}
-
-.overview-swiper .swiper {
-  padding: 0 0 0.6rem;
-  margin-top: -0.5rem;
-  margin-bottom: -0.5rem;
-  overflow: hidden;
-  border-radius: 12px;
-}
-
-.overview-swiper .swiper-wrapper {
-  align-items: flex-end;
-  min-height: 30rem;
 }
 
 /* Meta Card */
@@ -306,7 +233,7 @@ const renderedSuggestions = computed(() => {
 @media (max-width: 768px) {
   .tab-overview { padding: 0 8px; }
   .meta-row { grid-template-columns: 1fr 1fr; }
-  .overview-swiper .swiper-wrapper { min-height: 26rem; }
   .overview-swiper-section { padding: 16px; }
 }
+
 </style>

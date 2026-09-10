@@ -245,20 +245,18 @@ def _get_note_detail_ssr(note_id: str) -> dict:
     return {}
 
 
-def search_xhs_attractions(city: str, keywords: str, language: str = "zh") -> str:
+def search_xhs_attractions(city: str, keywords: str, language: str = "zh") -> tuple[str, int]:
     """
     搜索小红书笔记，使用大模型极速提纯出结构化景点，
     并静默拼装经纬度，回传给Planner。
 
-    Args:
-        city: 城市名称
-        keywords: 搜索关键词
-        language: 目标输出语言 (zh/en/ja 等)
+    Returns:
+        (提纯结果文本, 实际装载的笔记篇数) — 失败/无结果时篇数为 0
     """
     print(f"🔍 [XHS_SERVICE] 正在呼叫小红书 API 搜索: {city} {keywords}")
     if not _XHS_SIGN_AVAILABLE:
         print(f"⚠️ 小红书签名引擎不可用，跳过景点搜索: {city} {keywords}")
-        return f"未在小红书检索到关于 {city} {keywords} 的内容。"
+        return f"未在小红书检索到关于 {city} {keywords} 的内容。", 0
 
     client = get_xhs_client()
     query = f"{city} {keywords} 旅游 景点攻略"
@@ -338,7 +336,7 @@ def search_xhs_attractions(city: str, keywords: str, language: str = "zh") -> st
         )
 
     if not combined_text:
-        return f"未在小红书检索到关于 {city} {keywords} 的内容。"
+        return f"未在小红书检索到关于 {city} {keywords} 的内容。", 0
 
     # LLM 提纯 — 使用快速 LLM 实例 (30s 超时, 4096 tokens)
     print(f"🧠 [XHS_SERVICE] 正在调用 LLM 提纯小红书游记...")
@@ -435,12 +433,12 @@ JSON 返回示例:
         for item in results:
             final_result += json.dumps(item, ensure_ascii=False) + "\n"
 
-        print(f"✅ [XHS_SERVICE] 小红书数据挖掘完毕，已装载进上下文。")
-        return final_result
+        print(f"✅ [XHS_SERVICE] 小红书数据挖掘完毕，共装载 {len(combined_parts)} 篇游记进上下文。")
+        return final_result, len(combined_parts)
 
     except Exception as e:
         print(f"❌ 大模型提纯小红书数据异常: {e}")
-        return "尝试提取小红书结构化数据失败，降级回常规处理。"
+        return "尝试提取小红书结构化数据失败，降级回常规处理。", 0
 
 
 def get_xhs_photo_sync(keyword: str) -> str:

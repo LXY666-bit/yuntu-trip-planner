@@ -85,6 +85,14 @@ async def delete_trip(trip_id: int):
     return {"success": True, "message": "行程已删除"}
 
 
+@router.put("/{trip_id}/plan")
+async def update_plan(trip_id: int, plan: TripPlan):
+    record = await trip_history_service.update_trip_plan(trip_id, plan)
+    if record is None:
+        raise HTTPException(status_code=404, detail="行程不存在")
+    return {"success": True, "data": trip_history_service.record_to_dict(record)}
+
+
 @router.patch("/{trip_id}/status")
 async def update_status(trip_id: int, body: TripStatusUpdate):
     if body.status not in ("completed", "favorite", "archived"):

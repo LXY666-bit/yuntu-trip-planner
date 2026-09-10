@@ -12,7 +12,7 @@
               <span class="ball cyan"></span>
             </div>
           </div>
-          <div class="content-card" :class="{ clickable: !chatOpen }" @click="openChatPanel">
+          <div class="content-card" :role="!chatOpen ? 'button' : undefined" :tabindex="!chatOpen ? 0 : -1" aria-label="打开旅行助手" @keydown.enter="openChatPanel" @keydown.space.prevent="openChatPanel" :class="{ clickable: !chatOpen }" @click="openChatPanel">
             <div class="background-blur-card">
               <div class="eyes">
                 <span class="eye"></span>
@@ -29,7 +29,7 @@
             </div>
           </div>
           <div class="container-ai-chat" @click.stop>
-            <button type="button" class="chat-close-btn" @click.stop="closeChatPanel">×</button>
+            <button type="button" aria-label="关闭旅行助手" class="chat-close-btn" @click.stop="closeChatPanel">×</button>
             <div class="chat">
               <div class="chat-bot">
                 <div class="chat-history" ref="chatMessagesRef">
@@ -65,6 +65,7 @@
                 <textarea
                   v-model="chatInput"
                   :placeholder="chatPlaceholder"
+                  aria-label="向旅行助手提问"
                   name="chat_bot"
                   id="chat_bot"
                   :disabled="chatLoading || !tripPlan"
@@ -82,6 +83,7 @@
                 <button
                   type="button"
                   class="btn-submit"
+                  aria-label="发送消息"
                   :disabled="chatLoading || !chatInput.trim() || !tripPlan"
                   @click="sendChatMessage"
                 >
@@ -115,7 +117,9 @@ const chatHistory = ref<ChatMessage[]>([])
 const chatLoading = ref(false)
 const chatMessagesRef = ref<HTMLElement | null>(null)
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
+// 与 services/api.ts 保持一致：默认走相对路径 + Vite 代理，
+// 不再硬编码 localhost 兜底（开发环境代理已指向后端）
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || ''
 
 const quickQuestions = [
   { label: '费用是多少？', question: '这次旅行的总费用大概是多少？各项花费分别多少？' },
@@ -199,8 +203,11 @@ const sendChatMessage = async () => {
 
 .ai-chat-floating.chat-is-open {
   left: 50%;
-  top: 100%;
-  transform: translate(-50%, -100%) scale(1);
+  top: auto;
+  bottom: 20px;
+  width: min(500px, calc(100vw - 32px));
+  height: min(620px, calc(100dvh - 96px));
+  transform: translateX(-50%);
   transform-origin: center center;
 }
 
@@ -243,6 +250,7 @@ const sendChatMessage = async () => {
 }
 
 .container-wrap:after {
+  pointer-events: none;
   content: "";
   position: absolute;
   left: 50%;
@@ -265,9 +273,10 @@ const sendChatMessage = async () => {
 }
 
 .container-wrap.open .content-card {
-  width: 500px;
-  height: 620px;
+  width: 100%;
+  height: 100%;
 }
+.container-wrap.open { width: 100%; height: 100%; padding: 0; }
 
 .container-wrap.open .background-blur-balls {
   border-radius: 24px;
@@ -281,6 +290,7 @@ const sendChatMessage = async () => {
 }
 
 .card {
+  z-index: 1;
   width: 100%;
   height: 100%;
   position: relative;
@@ -327,10 +337,10 @@ const sendChatMessage = async () => {
   filter: blur(30px);
 }
 
-.ball.violet { top: 0; left: 50%; transform: translateX(-50%); background-color: #9147ff; }
-.ball.green { bottom: 0; left: 50%; transform: translateX(-50%); background-color: #34d399; }
-.ball.rosa { top: 50%; left: 0; transform: translateY(-50%); background-color: #ec4899; }
-.ball.cyan { top: 50%; right: 0; transform: translateY(-50%); background-color: #05e0f5; }
+.ball.violet { top: 0; left: 50%; transform: translateX(-50%); background-color: #426d5d; }
+.ball.green { bottom: 0; left: 50%; transform: translateX(-50%); background-color: #6fa087; }
+.ball.rosa { top: 50%; left: 0; transform: translateY(-50%); background-color: #bb9275; }
+.ball.cyan { top: 50%; right: 0; transform: translateY(-50%); background-color: #8fbaa6; }
 
 .content-card {
   width: 12rem;
@@ -466,7 +476,7 @@ const sendChatMessage = async () => {
   padding: 6px 14px;
   font-size: 12px;
   font-weight: 500;
-  background: linear-gradient(135deg, #667eea, #764ba2);
+  background: var(--color-primary);
   color: #ffffff;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -489,7 +499,7 @@ const sendChatMessage = async () => {
 
   &.user {
     margin-left: auto;
-    background: linear-gradient(135deg, #667eea, #764ba2);
+    background: var(--color-primary);
     color: #ffffff;
   }
 
@@ -505,7 +515,7 @@ const sendChatMessage = async () => {
       width: 8px;
       height: 8px;
       border-radius: 50%;
-      background: linear-gradient(135deg, #667eea, #764ba2);
+      background: var(--color-primary);
       animation: aiChatDotPulse 1.4s infinite ease-in-out both;
 
       &:nth-child(2) { animation-delay: 0.16s; }
@@ -558,7 +568,7 @@ const sendChatMessage = async () => {
 .btn-submit {
   display: flex;
   padding: 10px;
-  background: linear-gradient(135deg, #667eea, #764ba2);
+  background: var(--color-primary);
   border-radius: 10px;
   cursor: pointer;
   border: none;
@@ -622,7 +632,7 @@ const sendChatMessage = async () => {
 
 @media (max-width: 768px) {
   .ai-chat-floating { left: 8px; bottom: 8px; }
-  .container-wrap.open .content-card { width: 320px; height: 420px; }
+  .container-wrap.open .content-card { width: 100%; height: 100%; }
   .container-wrap:after { width: 6.5rem; height: 6rem; }
   .container-wrap:hover:after { height: 6.5rem; }
   .content-card { width: 6.5rem; height: 6.5rem; }

@@ -9,7 +9,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, nextTick, computed } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch, nextTick, computed } from 'vue'
 import * as echarts from 'echarts'
 import type { TripPlan } from '@/types'
 
@@ -19,6 +19,8 @@ const props = defineProps<{
 
 const graphChartRef = ref<HTMLElement | null>(null)
 let chartInstance: echarts.ECharts | null = null
+let disposed = false
+const resizeChart = () => chartInstance?.resize()
 
 const hasData = computed(() => {
   return props.tripPlan?.days?.length > 0
@@ -146,7 +148,7 @@ function buildGraphData(): { nodes: any[]; edges: any[]; categories: any[] } {
 }
 
 function initChart() {
-  if (!graphChartRef.value || !hasData.value) return
+  if (disposed || !graphChartRef.value || !hasData.value) return
 
   if (chartInstance) chartInstance.dispose()
 
@@ -200,11 +202,19 @@ function initChart() {
     }],
   })
 
-  window.addEventListener('resize', () => chartInstance?.resize())
+
 }
 
 onMounted(() => {
+  window.addEventListener('resize', resizeChart)
   nextTick(() => initChart())
+})
+
+onBeforeUnmount(() => {
+  disposed = true
+  window.removeEventListener('resize', resizeChart)
+  chartInstance?.dispose()
+  chartInstance = null
 })
 
 watch(() => props.tripPlan, () => {

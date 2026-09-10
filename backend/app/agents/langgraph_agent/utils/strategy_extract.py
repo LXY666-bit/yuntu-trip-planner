@@ -1,5 +1,6 @@
 """从旅游攻略文本提取景点名，并模糊匹配到当前景点池。"""
 
+import asyncio
 import json
 import logging
 import re
@@ -7,6 +8,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from ....services.llm_service import get_llm, is_structured_output_supported
 
+
+from .llm_json import parse_json_answer
 
 logger = logging.getLogger(__name__)
 
@@ -381,12 +384,21 @@ async def pick_attractions_from_pool(
             raw_must = [m.model_dump() for m in resp.must]
             raw_optional = [o.model_dump() for o in resp.optional]
         else:
-            raw = await llm.ainvoke(prompt)
-            text = raw.content if hasattr(raw, "content") else str(raw)
-            m = re.search(r"\{.*\}", text, re.DOTALL)
-            if not m:
-                raise ValueError("LLM 响应不含 JSON")
-            data = json.loads(m.group(0))
+            # A missing/invalid answer gets one bounded retry with an explicit format reminder.
+            for attempt in range(2):
+                raw = await asyncio.wait_for(llm.ainvoke(
+                    prompt if attempt == 0 else prompt + "\n上次答案无法解析，请直接输出完整 JSON 对象，不要思考过程或解释。"
+                ), timeout=40)
+                try:
+                    data = parse_json_answer(raw)
+                    if not isinstance(data.get("must"), list) or not isinstance(data.get("optional", []), list):
+                        raise ValueError("选景结果缺少 must/optional 数组")
+                    if not all(isinstance(item, dict) for item in data["must"] + data.get("optional", [])):
+                        raise ValueError("选景结果条目格式不正确")
+                    break
+                except ValueError:
+                    if attempt:
+                        raise
             must_ids = [item["poi_id"] for item in data.get("must", []) if item.get("poi_id")]
             optional_ids = [item["poi_id"] for item in data.get("optional", []) if item.get("poi_id")]
             summary = data.get("summary")
@@ -395,8 +407,8 @@ async def pick_attractions_from_pool(
 
         # 验证：去除两边重复（must 优先）+ 去除不在池里的 id
         valid_ids = {p.get("poi_id") for p in pool if p.get("poi_id")}
-        must_ids = [i for i in must_ids if i in valid_ids]
-        optional_ids = [i for i in optional_ids if i in valid_ids and i not in must_ids]
+        must_ids = list(dict.fromkeys(i for i in must_ids if i in valid_ids))
+        optional_ids = list(dict.fromkeys(i for i in optional_ids if i in valid_ids and i not in must_ids))
 
         if not must_ids and not optional_ids:
             raise ValueError("LLM 返回空集")

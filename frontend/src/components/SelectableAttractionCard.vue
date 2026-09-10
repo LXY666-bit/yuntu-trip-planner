@@ -2,6 +2,9 @@
   <div
     class="selectable-card-wrapper"
     :class="{ selected: attraction.selected }"
+    role="checkbox" tabindex="0" :aria-checked="!!attraction.selected" :aria-label="attraction.name"
+    @keydown.enter.prevent="$emit('toggle', attraction)"
+    @keydown.space.prevent="$emit('toggle', attraction)"
     @click="$emit('toggle', attraction)"
   >
     <div class="selection-checkbox">
@@ -10,8 +13,13 @@
       </div>
     </div>
     <div v-if="attraction.manuallyAdded" class="manual-badge">手动添加</div>
+    <div v-if="attraction.aiPick" class="ai-badge" :class="`ai-badge-${attraction.aiPick}`">
+      {{ attraction.aiPick === 'must' ? '⭐ 必去' : '💡 备选' }}
+    </div>
     <div class="card-content">
-      <div class="card-image" :style="{ backgroundImage: `url(${imageUrl})` }">
+      <div class="card-image">
+        <img v-if="imageUrl && !imageFailed" :src="imageUrl" alt="" loading="lazy" @error="imageFailed = true" />
+        <div v-else class="image-placeholder" aria-hidden="true"><span>{{ attraction.category || '发现风景' }}</span><strong>{{ attraction.name.slice(0, 6) }}</strong><i>YUNTU · NEXT STOP</i></div>
         <div v-if="attraction.ticket_price" class="price-tag">¥{{ attraction.ticket_price }}</div>
         <div v-if="attraction.category" class="category-tag">{{ attraction.category }}</div>
       </div>
@@ -21,6 +29,7 @@
           <span v-if="attraction.rating" class="rating">
             <span class="star">★</span> {{ attraction.rating }}
           </span>
+          <span v-if="attraction.visit_minutes" class="duration">约 {{ formatMinutes(attraction.visit_minutes) }}</span>
           <span v-if="attraction.address" class="address">{{ attraction.address }}</span>
         </div>
         <p v-if="attraction.description" class="card-desc">{{ attraction.description }}</p>
@@ -30,8 +39,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import type { DiscoveredAttraction } from '@/types'
+import { formatMinutes } from '@/composables/useFormat'
 
 const props = defineProps<{
   attraction: DiscoveredAttraction
@@ -42,16 +52,9 @@ defineEmits<{
   toggle: [attraction: DiscoveredAttraction]
 }>()
 
-const gradientColors = ['#667eea,#764ba2', '#f093fb,#f5576c', '#4facfe,#00f2fe', '#43e97b,#38f9d7', '#fa709a,#fee140']
-
-const imageUrl = computed(() => {
-  if (props.photoUrl) return props.photoUrl
-  if (props.attraction.image_url) return props.attraction.image_url
-  const idx = props.attraction.name.length % gradientColors.length
-  const colors = gradientColors[idx]
-  const name = props.attraction.name.slice(0, 4)
-  return `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="300" height="160"><defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:${colors.split(',')[0]}"/><stop offset="100%" style="stop-color:${colors.split(',')[1]}"/></linearGradient></defs><rect width="300" height="160" fill="url(#g)"/><text x="150" y="88" text-anchor="middle" fill="white" font-size="28" font-family="sans-serif">${name}</text></svg>`)}`
-})
+const imageFailed = ref(false)
+const imageUrl = computed(() => props.photoUrl || props.attraction.image_url || '')
+watch(imageUrl, () => { imageFailed.value = false })
 </script>
 
 <style scoped>
@@ -117,6 +120,37 @@ const imageUrl = computed(() => {
   background: var(--color-accent, #764ba2);
   color: white;
   font-size: 11px;
+}
+
+.ai-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 10;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill, 9999px);
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+
+.ai-badge-must {
+  background: linear-gradient(135deg, #f5593d, #f7765f);
+}
+
+.ai-badge-optional {
+  background: linear-gradient(135deg, #4a90d9, #51bcda);
+}
+
+/* 同时有"手动添加"角标时错开位置，避免重叠 */
+.manual-badge + .ai-badge {
+  top: 34px;
+}
+
+.duration {
+  flex: none;
+  color: var(--color-text-tertiary, #999);
 }
 
 .card-image {
@@ -194,4 +228,24 @@ const imageUrl = computed(() => {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
 }
+
+.selectable-card-wrapper { border: 1px solid var(--color-border-light); border-radius: 13px; box-shadow: 0 2px 6px rgba(23,53,43,.025); transition: transform 180ms ease, box-shadow 180ms ease; }
+.selectable-card-wrapper.selected { border-color: var(--color-primary); box-shadow: 0 0 0 1px var(--color-primary); }
+.selectable-card-wrapper:hover { box-shadow: 0 6px 18px rgba(23,53,43,.08); }
+.card-image { height: 155px; background: var(--color-bg-secondary); overflow: hidden; }
+.card-image > img { width: 100%; height: 100%; object-fit: cover; }
+.image-placeholder { height: 100%; padding: 30px 20px; color: var(--color-primary); background: linear-gradient(145deg, var(--color-primary-soft), transparent); display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 8px; }
+.image-placeholder > span { font-size: 9px; letter-spacing: 2px; opacity: .7; }
+.image-placeholder strong { font-size: 22px; font-weight: 500; letter-spacing: 2px; }
+.image-placeholder i { font-size: 8px; font-style: normal; letter-spacing: 2px; opacity: .5; }
+.card-body { padding: 15px; }
+.card-name { font-size: 15px; }
+.card-desc { line-height: 1.7; margin-top: 9px; min-height: 40px; }
+.category-tag { background: var(--color-glass-bg); color: var(--color-text-primary); border-radius: 5px; font-size: 10px; }
+.ai-badge-must { background: #ce785b; }
+.ai-badge-optional { background: #557b69; }
+.ai-badge, .manual-badge { box-shadow: none; border-radius: 5px; }
+.selection-checkbox, .manual-badge, .ai-badge { z-index: 2; }
+.price-tag { background: var(--color-glass-bg); color: var(--color-text-primary); }
+@media (max-width: 600px) { .card-image { height: 126px; } .card-body { padding: 12px; } .card-name { font-size: 14px; } .image-placeholder { padding: 22px 12px; } .image-placeholder strong { font-size: 17px; } }
 </style>

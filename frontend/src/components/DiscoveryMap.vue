@@ -1,6 +1,7 @@
 <template>
   <div class="discovery-map-container">
     <div id="discovery-map" ref="mapContainer"></div>
+    <div v-if="mapError" class="map-state"><strong>地图暂时无法加载</strong><p>仍可在景点列表中继续选择</p><button @click="initMap">重新加载</button></div>
   </div>
 </template>
 
@@ -23,12 +24,15 @@ let AMap: any = null
 let markers: any[] = []
 let infoWindow: any = null
 const mapReady = ref(false)
+const mapError = ref(false)
+let disposed = false
 
 function escapeHtml(str: string): string {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
 async function initMap() {
+  mapError.value = false
   try {
     const AMapLoader = (await import('@amap/amap-jsapi-loader')).default
     AMap = await AMapLoader.load({
@@ -37,6 +41,7 @@ async function initMap() {
       plugins: ['AMap.Marker', 'AMap.InfoWindow'],
     })
 
+    if (disposed) return
     map = new AMap.Map('discovery-map', {
       zoom: 12,
       center: [116.397128, 39.916527],
@@ -53,7 +58,8 @@ async function initMap() {
       syncMarkers()
     }
   } catch (e) {
-    console.error('地图初始化失败:', e)
+    if (!disposed) mapError.value = true
+    console.warn('地图初始化失败:', e)
   }
 }
 
@@ -136,6 +142,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  disposed = true
   if (map) {
     map.destroy()
     map = null
@@ -149,7 +156,8 @@ defineExpose({ panToAttraction, syncMarkers })
 .discovery-map-container {
   width: 100%;
   height: 100%;
-  min-height: 400px;
+  min-height: 0;
+  position: relative;
   border-radius: var(--radius-lg, 12px);
   overflow: hidden;
 }
@@ -158,4 +166,8 @@ defineExpose({ panToAttraction, syncMarkers })
   width: 100%;
   height: 100%;
 }
+.map-state { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--color-bg-secondary); color: var(--color-text-secondary); }
+.map-state strong { font-size: 14px; font-weight: 500; }
+.map-state p { font-size: 12px; }
+.map-state button { border: 1px solid var(--color-border); background: var(--color-bg-card); color: var(--color-primary); border-radius: 7px; padding: 6px 12px; margin-top: 12px; cursor: pointer; }
 </style>

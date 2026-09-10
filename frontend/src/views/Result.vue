@@ -15,7 +15,7 @@
       @export-pdf="exportAsPDF"
     />
 
-    <div v-if="tripPlan" class="tab-bar">
+    <div v-if="tripPlan" class="tab-bar" :class="{ 'tab-bar-pushed': headerHidden }">
       <div class="tab-bar-inner">
         <button
           v-for="tab in visibleTabs"
@@ -30,8 +30,8 @@
       </div>
     </div>
 
-    <div v-if="tripPlan" class="tab-content" ref="tabContentRef">
-      <div v-show="activeTab === 'overview' || isExporting">
+    <div v-if="tripPlan" class="tab-content">
+      <div v-show="activeTab === 'overview'">
         <TabOverview
           :trip-plan="tripPlan"
           :attraction-photos="attractionPhotos"
@@ -39,9 +39,9 @@
         />
       </div>
       <Transition name="tab-fade" mode="out-in">
-        <TabBudget v-if="(activeTab === 'budget' || isExporting) && tripPlan.budget" :budget="tripPlan.budget" :key="'budget'" />
+        <TabBudget v-if="(activeTab === 'budget') && tripPlan.budget" :budget="tripPlan.budget" :key="'budget'" />
       </Transition>
-      <div v-show="activeTab === 'map' || isExporting">
+      <div v-show="activeTab === 'map'">
         <TabMap
           ref="tabMapRef"
           :trip-plan="tripPlan"
@@ -51,7 +51,7 @@
       </div>
       <Transition name="tab-fade" mode="out-in">
         <TabItinerary
-          v-if="activeTab === 'itinerary' || isExporting"
+          v-if="activeTab === 'itinerary'"
           :trip-plan="tripPlan"
           :edit-mode="editMode"
           :attraction-photos="attractionPhotos"
@@ -63,14 +63,14 @@
       </Transition>
       <Transition name="tab-fade" mode="out-in">
         <TabGraph
-          v-if="activeTab === 'graph' || isExporting"
+          v-if="activeTab === 'graph'"
           :trip-plan="tripPlan"
           :key="'graph'"
         />
       </Transition>
       <Transition name="tab-fade" mode="out-in">
         <TabWeather
-          v-if="(activeTab === 'weather' || isExporting) && tripPlan.weather_info && tripPlan.weather_info.length > 0"
+          v-if="(activeTab === 'weather') && tripPlan.weather_info && tripPlan.weather_info.length > 0"
           :weather-info="tripPlan.weather_info"
           :key="'weather'"
         />
@@ -91,6 +91,7 @@
       <div class="back-top-button">↑</div>
     </a-back-top>
 
+    <div v-if="isExporting && tripPlan" ref="exportRef" class="export-stage" aria-hidden="true"><TripExport :trip-plan="tripPlan" /></div>
     <AIChat :trip-plan="tripPlan" />
   </div>
 </template>
@@ -102,7 +103,8 @@ import { message } from 'ant-design-vue'
 import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
 import type { TripPlan } from '@/types'
-import { saveTripToHistory, getTripDetail } from '@/services/api'
+import { saveTripToHistory, getTripDetail, updateTripPlan } from '@/services/api'
+import { useScrollHeader } from '@/composables/useScrollHeader'
 import ResultHero from '@/components/result/ResultHero.vue'
 import TabOverview from '@/components/result/TabOverview.vue'
 import TabBudget from '@/components/result/TabBudget.vue'
@@ -111,9 +113,11 @@ import TabItinerary from '@/components/result/TabItinerary.vue'
 import TabWeather from '@/components/result/TabWeather.vue'
 import TabGraph from '@/components/result/TabGraph.vue'
 import AIChat from '@/components/AIChat.vue'
+import TripExport from '@/components/result/TripExport.vue'
 
 const router = useRouter()
 const route = useRoute()
+const { hidden: headerHidden } = useScrollHeader()
 
 const tripPlan = ref<TripPlan | null>(null)
 const editMode = ref(false)
@@ -122,9 +126,10 @@ const attractionPhotos = ref<Record<string, string>>({})
 const activeTab = ref('overview')
 const activeDays = ref<number[]>([0])
 const isSaved = ref(false)
+const savedTripId = ref<number | null>(route.params.id ? Number(route.params.id) : null)
 const savingTrip = ref(false)
 const isExporting = ref(false)
-const tabContentRef = ref<HTMLElement | null>(null)
+const exportRef = ref<HTMLElement | null>(null)
 const tabMapRef = ref<InstanceType<typeof TabMap> | null>(null)
 
 const visibleTabs = computed(() => {
@@ -186,7 +191,8 @@ const handleSaveTrip = async () => {
   try {
     const formData = sessionStorage.getItem('tripFormData')
     const request = formData ? JSON.parse(formData) : undefined
-    await saveTripToHistory(tripPlan.value, request)
+    const saved = await saveTripToHistory(tripPlan.value, request)
+    savedTripId.value = saved.data.id
     isSaved.value = true
     message.success('行程已保存到我的行程！')
   } catch (e: any) {
@@ -203,13 +209,20 @@ const toggleEditMode = () => {
   message.info('进入编辑模式')
 }
 
-const saveChanges = () => {
-  editMode.value = false
-  if (tripPlan.value) {
+const saveChanges = async () => {
+  if (!tripPlan.value || savingTrip.value) return
+  savingTrip.value = true
+  try {
+    if (savedTripId.value) await updateTripPlan(savedTripId.value, tripPlan.value)
     sessionStorage.setItem('tripPlan', JSON.stringify(tripPlan.value))
+    editMode.value = false
+    message.success(savedTripId.value ? '修改已保存到我的行程' : '修改已保存，点击保存行程可加入我的行程')
+    tabMapRef.value?.refreshMap()
+  } catch (e: any) {
+    message.error(e?.message || '保存修改失败，请重试')
+  } finally {
+    savingTrip.value = false
   }
-  message.success('修改已保存')
-  tabMapRef.value?.refreshMap()
 }
 
 const cancelEdit = () => {
@@ -262,13 +275,14 @@ const loadAttractionPhotos = async () => {
 }
 
 const exportAsImage = async () => {
+  if (isExporting.value) return
   try {
     message.loading({ content: '正在生成图片...', key: 'export', duration: 0 })
     isExporting.value = true
     await nextTick()
-    const element = tabContentRef.value
+    const element = exportRef.value
     if (!element) throw new Error('未找到内容元素')
-    const canvas = await html2canvas(element, { backgroundColor: '#f5f7fa', scale: 2, logging: false, useCORS: true, allowTaint: true })
+    const canvas = await html2canvas(element, { backgroundColor: '#fffdf8', scale: 2, logging: false, useCORS: true, allowTaint: false })
     isExporting.value = false
     const link = document.createElement('a')
     link.download = `旅行计划_${tripPlan.value?.city}_${new Date().getTime()}.png`
@@ -282,13 +296,14 @@ const exportAsImage = async () => {
 }
 
 const exportAsPDF = async () => {
+  if (isExporting.value) return
   try {
     message.loading({ content: '正在生成PDF...', key: 'export', duration: 0 })
     isExporting.value = true
     await nextTick()
-    const element = tabContentRef.value
+    const element = exportRef.value
     if (!element) throw new Error('未找到内容元素')
-    const canvas = await html2canvas(element, { backgroundColor: '#f5f7fa', scale: 2, logging: false, useCORS: true, allowTaint: true })
+    const canvas = await html2canvas(element, { backgroundColor: '#fffdf8', scale: 2, logging: false, useCORS: true, allowTaint: false })
     isExporting.value = false
     const imgData = canvas.toDataURL('image/png')
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
@@ -314,9 +329,10 @@ const exportAsPDF = async () => {
 </script>
 
 <style scoped>
+.export-stage { position: absolute; left: -12000px; top: 0; width: 1000px; pointer-events: none; }
 .result-container {
   min-height: 100vh;
-  padding-top: 32px;
+  padding-top: 56px;
   background: var(--color-bg-secondary);
   transition: background var(--transition-normal);
 }
@@ -325,10 +341,15 @@ const exportAsPDF = async () => {
   position: sticky;
   top: var(--header-height);
   z-index: 10;
-  background: #ffffff;
+  background: var(--color-glass-bg);
+  backdrop-filter: blur(24px);
   padding: 12px 24px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03), 0 2px 4px rgba(0, 0, 0, 0.02);
+  transition: top 260ms cubic-bezier(0.4, 0, 0.2, 1);
 }
+
+/* 全局导航栏下滑隐藏时, tab 栏上滑补位贴顶, 避免 56px 空洞 */
+.tab-bar-pushed { top: 0; }
 
 .tab-bar-inner {
   max-width: 1100px;
@@ -364,8 +385,8 @@ const exportAsPDF = async () => {
 
 .tab-pill.active {
   background: var(--color-primary);
-  color: #fff;
-  box-shadow: 0 4px 12px rgba(245, 89, 61, 0.3);
+  color: var(--color-text-inverse);
+  box-shadow: none;
 }
 
 .tab-icon { font-size: 14px; }
@@ -380,14 +401,14 @@ const exportAsPDF = async () => {
   width: 40px;
   height: 40px;
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-text-inverse);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 18px;
   font-weight: 700;
-  box-shadow: 0 4px 12px rgba(245, 89, 61, 0.3);
+  box-shadow: none;
   cursor: pointer;
   transition: all 0.3s ease;
 }
@@ -405,6 +426,6 @@ const exportAsPDF = async () => {
 
 @media (max-width: 480px) {
   .tab-pill { padding: 6px 12px; font-size: 12px; }
-  .tab-label { display: none; }
+  .tab-label { display: inline; }
 }
 </style>

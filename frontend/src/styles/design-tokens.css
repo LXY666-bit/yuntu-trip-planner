@@ -1,44 +1,51 @@
-/* TripStar Dark Luxury Theme — Design Tokens */
+/* YunTu — calm surfaces, forest green, warm travel accents. */
 :root {
+  --color-accent: #ce785b;
+  --color-primary-bg: rgba(36, 95, 80, 0.08);
+  --color-bg-hero: #244d41;
+  --color-text-disabled: #8a938c;
+  --radius-xl: 20px;
+  --space-12: 48px;
+
   /* === Typography === */
-  --font-family-base: 'Montserrat', 'Helvetica', Arial, 'PingFang SC', 'Microsoft YaHei', sans-serif;
-  --font-weight-light: 300;
+  --font-family-base: 'Inter', 'Helvetica', Arial, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-weight-light: 400;
   --font-weight-normal: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
   --font-weight-bold: 700;
 
   /* === Brand Colors === */
-  --color-primary: #f5593d;
-  --color-primary-hover: #f33816;
-  --color-primary-light: #f7765f;
-  --color-primary-soft: rgba(245, 89, 61, 0.12);
+  --color-primary: #245f50;
+  --color-primary-hover: #194638;
+  --color-primary-light: #438773;
+  --color-primary-soft: rgba(36, 95, 80, 0.08);
   --color-teal: #51cbce;
   --color-teal-hover: #34b5b8;
   --color-info: #51bcda;
   --color-success: #6bd098;
   --color-warning: #fbc658;
-  --color-danger: #f5593d;
+  --color-danger: #c44d42;
 
   /* === Background Colors === */
   --color-bg-primary: #ffffff;
-  --color-bg-secondary: #f5f6fa;
-  --color-bg-dark: #1a1530;
-  --color-bg-darker: #0b0b1a;
+  --color-bg-secondary: #f5f5f0;
+  --color-bg-dark: #183a32;
+  --color-bg-darker: #10231e;
   --color-bg-card: #ffffff;
-  --color-bg-glass: rgba(255, 255, 255, 0.15);
+  --color-bg-glass: rgba(250, 251, 247, 0.8);
   --color-bg-overlay: rgba(0, 0, 0, 0.5);
 
   /* === Text Colors === */
-  --color-text-primary: #333333;
-  --color-text-secondary: #555555;
-  --color-text-tertiary: #777777;
-  --color-text-muted: #dddddd;
+  --color-text-primary: #223b33;
+  --color-text-secondary: #53655d;
+  --color-text-tertiary: #748077;
+  --color-text-muted: #dce2da;
   --color-text-white: #ffffff;
   --color-text-white-muted: rgba(255, 255, 255, 0.7);
 
   /* === Border === */
-  --color-border: #dddddd;
+  --color-border: #dce2da;
   --color-border-light: #f1eae0;
   --border-radius-sm: 4px;
   --border-radius-md: 8px;
@@ -49,9 +56,9 @@
   /* === Shadows === */
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
   --shadow-md: 0 6px 10px -4px rgba(0, 0, 0, 0.15);
-  --shadow-lg: 0 12px 19px -7px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 12px 19px -7px rgba(23, 53, 43, 0.10);
   --shadow-xl: 0 16px 38px -12px rgba(0, 0, 0, 0.56), 0 4px 25px 0 rgba(0, 0, 0, 0.12), 0 8px 10px -5px rgba(0, 0, 0, 0.2);
-  --shadow-card-hover: 0px 12px 19px -7px rgba(0, 0, 0, 0.3);
+  --shadow-card-hover: 0 10px 28px rgba(23, 53, 43, 0.09);
 
   /* === Spacing === */
   --spacing-xs: 4px;
@@ -77,8 +84,8 @@
 
   /* === Backward-compatible aliases (from old design system) === */
   --font-family: var(--font-family-base);
-  --header-height: 64px;
-  --content-max-width: 1100px;
+  --header-height: 56px;
+  --content-max-width: 1200px;
 
   /* Spacing aliases */
   --space-1: 4px;
@@ -92,8 +99,8 @@
   --space-16: 64px;
 
   /* Font size aliases */
-  --font-size-xs: 10px;
-  --font-size-sm: 12px;
+  --font-size-xs: 11px;
+  --font-size-sm: 13px;
   --font-size-md: 14px;
   --font-size-base: 16px;
   --font-size-lg: 18px;
@@ -113,7 +120,7 @@
   --color-gradient: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));
   --color-bg-elevated: var(--color-bg-card);
   --color-bg-tertiary: rgba(0, 0, 0, 0.03);
-  --color-glass-bg: rgba(255, 255, 255, 0.8);
+  --color-glass-bg: rgba(250, 251, 247, 0.84);
   --color-glass-border: rgba(0, 0, 0, 0.08);
   --color-text-inverse: #fff;
   --color-primary-bg: var(--color-primary-soft);
@@ -121,9 +128,9 @@
   --color-error-bg: rgba(245, 89, 61, 0.1);
   --color-bg-hero: linear-gradient(135deg, #1a0a2e, #16213e, #0f3460);
   --shadow-card: var(--shadow-md);
-  --shadow-card-hover: 0px 12px 19px -7px rgba(0, 0, 0, 0.3);
-  --shadow-button: 0 4px 12px rgba(245, 89, 61, 0.3);
-  --shadow-button-hover: 0 8px 25px rgba(245, 89, 61, 0.4);
+  --shadow-card-hover: 0 10px 28px rgba(23, 53, 43, 0.09);
+  --shadow-button: 0 4px 12px rgba(36, 95, 80, 0.12);
+  --shadow-button-hover: 0 8px 25px rgba(36, 95, 80, 0.18);
   --blur-glass: 16px;
   --line-height-relaxed: 1.7;
 
