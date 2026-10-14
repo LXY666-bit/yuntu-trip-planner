@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime, timedelta
 from typing import List, Optional, Any
 
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import async_session
@@ -16,6 +16,13 @@ from ..models.schemas import (
 from ..logger import get_logger
 
 logger = get_logger(__name__)
+
+
+class DraftConflict(ValueError):
+    pass
+
+
+_UNSET = object()
 
 
 def _dump_pydantic_list(items: List[Any]) -> str:
@@ -72,18 +79,31 @@ async def get_draft(draft_id: str) -> Optional[TripDraft]:
 
 
 async def patch_day_detail(
-    draft_id: str, day_index: int, day_detail: DayDetail
+    draft_id: str, day_index: int, day_detail: DayDetail, *, expected_day=_UNSET
 ) -> None:
-    async with async_session() as session:
-        record = await session.get(TripDraft, draft_id)
-        if record is None:
-            raise ValueError(f"draft {draft_id} not found")
-        days = json.loads(record.days_detail_json)
-        if day_index < 0 or day_index >= len(days):
-            raise IndexError(f"day_index {day_index} out of range (len={len(days)})")
-        days[day_index] = day_detail.model_dump(mode="json")
-        record.days_detail_json = json.dumps(days, ensure_ascii=False, default=str)
-        await session.commit()
+    # Compare-and-swap whole JSON, merging other dates on contention.
+    for _ in range(5):
+        async with async_session() as session:
+            record = await session.get(TripDraft, draft_id)
+            if record is None:
+                raise ValueError(f"draft {draft_id} not found")
+            if record.status == "finalized":
+                raise DraftConflict("草稿已定稿")
+            days = json.loads(record.days_detail_json)
+            if day_index < 0 or day_index >= len(days):
+                raise IndexError(f"day_index {day_index} out of range (len={len(days)})")
+            if expected_day is not _UNSET and days[day_index] != expected_day:
+                raise DraftConflict("当天行程已被修改，请刷新后重试")
+            days[day_index] = day_detail.model_dump(mode="json")
+            result = await session.execute(update(TripDraft).where(
+                TripDraft.id == draft_id, TripDraft.status != "finalized",
+                TripDraft.days_detail_json == record.days_detail_json,
+            ).values(days_detail_json=json.dumps(days, ensure_ascii=False, default=str)))
+            if result.rowcount == 1:
+                await session.commit()
+                return
+            await session.rollback()
+    raise DraftConflict("草稿修改频繁，请刷新后重试")
 
 
 async def update_synthesizer_fields(

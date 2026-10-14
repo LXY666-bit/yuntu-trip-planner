@@ -20,6 +20,12 @@
     </div>
 
     <main v-else-if="draft" class="draft-content">
+      <PlanningAssistant :draft="draft" :disabled="finalizing || reservationBusy || Object.keys(dayBusy).length > 0"
+                         @busy="assistantBusy = $event" @changed="refreshDraft"
+                         @constraints-saved="draft = { ...draft, request: $event }" />
+      <ReservationChecklist kind="draft" :id="draft.draft_id" :revision="draft"
+                            :disabled="finalizing || assistantBusy || Object.keys(dayBusy).length > 0"
+                            @busy="reservationBusy = $event" @changed="refreshDraft" />
       <div class="days-container">
         <DayCard
           v-for="(ctx, idx) in draft.days"
@@ -27,7 +33,7 @@
           :context="ctx"
           :detail="draft.days_detail[idx] || null"
           :is-default-expanded="idx === 0"
-          :busy="finalizing ? '定稿中' : dayBusy[idx] || ''"
+          :busy="finalizing ? '定稿中' : assistantBusy || reservationBusy ? '行程助手处理中' : dayBusy[idx] || ''"
           @assemble="onAssemble(idx, $event)"
           @recompute="onRecompute(idx, $event)"
           @ai-rearrange="onAIRearrange(idx, $event)"
@@ -36,7 +42,7 @@
       </div>
 
       <div class="finalize-bar"><div><strong>最后确认，准备出发</strong><p>保存后可在「我的行程」中查看与导出。</p></div>
-        <a-button type="primary" size="large" :loading="finalizing" :disabled="Object.keys(dayBusy).length > 0"
+        <a-button type="primary" size="large" :loading="finalizing" :disabled="assistantBusy || reservationBusy || Object.keys(dayBusy).length > 0"
                   @click="onFinalize">
           定稿并保存
         </a-button>
@@ -59,6 +65,9 @@ import type { FinalizeStreamEvent } from '@/services/api'
 import { useAbortController } from '@/composables/useSSEStream'
 import type { TripDraftPayload, DayEditRequest } from '@/types'
 import DayCard from '@/components/draft/DayCard.vue'
+import PlanningAssistant from '@/components/draft/PlanningAssistant.vue'
+import ReservationChecklist from '@/components/ReservationChecklist.vue'
+const reservationBusy = ref(false)
 
 const route = useRoute()
 const router = useRouter()
@@ -71,6 +80,12 @@ const draft = ref<TripDraftPayload | null>(null)
 const loading = ref(true)
 const loadError = ref('')
 const finalizing = ref(false)
+const assistantBusy = ref(false)
+
+async function refreshDraft() {
+  try { draft.value = await getDraft(draftId.value) }
+  catch (e: any) { message.error(e?.message || '刷新草稿失败，请重试') }
+}
 
 const dayBusy = reactive<Record<number, string>>({})
 
@@ -79,7 +94,7 @@ async function withDayBusy<T>(
   label: string,
   fn: () => Promise<T>,
 ): Promise<T | undefined> {
-  if (dayBusy[idx] || finalizing.value) return
+  if (dayBusy[idx] || finalizing.value || assistantBusy.value) return
   dayBusy[idx] = label
   try {
     const result = await fn()
@@ -147,7 +162,7 @@ async function onRewriteNarrative(idx: number) {
 }
 
 async function onFinalize() {
-  if (finalizing.value || Object.keys(dayBusy).length > 0) return
+  if (finalizing.value || assistantBusy.value || Object.keys(dayBusy).length > 0) return
   finalizing.value = true
   try {
     await finalizeDraftStream(

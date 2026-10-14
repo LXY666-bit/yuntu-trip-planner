@@ -465,6 +465,9 @@ async def macro_planner_node(state: TripPlannerState) -> Dict[str, Any]:
         prompt += f"\n**额外要求:** {request.free_text_input}" + must_visit_hint + food_hint + accom_hint + general_hint
 
     llm = get_llm()
+    from ....services.preferences_service import format_preference_hint
+    if state.get("user_preferences"):
+        prompt += "\n历史偏好仅在不与本次明确要求冲突时参考：\n" + format_preference_hint(state["user_preferences"])
     messages = [SystemMessage(content=MACRO_PLANNER_PROMPT), HumanMessage(content=prompt)]
 
     structured_llm = None
@@ -1106,6 +1109,19 @@ async def reduce_assemble_node(state: TripPlannerState) -> Dict[str, Any]:
             print(f"⚠️ DayPlan解析失败: {str(e)[:100]}")
 
     day_plans.sort(key=lambda d: d.day_index)
+
+    # Restore source-backed reservation data after legacy model generation.
+    # Models cannot claim that a user has already completed a booking.
+    from ....models.reservation import ReservationFields
+    evidence_pool = (state.get('selected_pois') or []) + (state.get('user_selected_attractions') or [])
+    for day in day_plans:
+        for attraction in day.attractions:
+            candidates = [item for item in evidence_pool if item.get('name') == attraction.name]
+            fields = ReservationFields.model_validate(candidates[0] if len(candidates) == 1 else {})
+            attraction.reservation = fields.reservation
+            attraction.reservation_required = fields.reservation_required
+            attraction.reservation_tips = fields.reservation_tips
+            attraction.reservation_booked_for = None
 
     # 跨天餐厅去重：保留首次出现，后续重复替换为通用名称
     seen_meal_names: set = set()

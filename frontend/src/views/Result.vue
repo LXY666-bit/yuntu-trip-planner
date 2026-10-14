@@ -31,6 +31,11 @@
     </div>
 
     <div v-if="tripPlan" class="tab-content">
+      <div v-if="activeTab === 'reservations'">
+        <ReservationChecklist v-if="savedTripId" kind="trip" :id="savedTripId" :revision="tripPlan"
+                              :disabled="editMode || savingTrip" @changed="loadTripFromHistory(savedTripId!)" />
+        <p v-else>请先保存行程，再管理预约待办和导出日历。</p>
+      </div>
       <div v-show="activeTab === 'overview'">
         <TabOverview
           :trip-plan="tripPlan"
@@ -114,6 +119,7 @@ import TabWeather from '@/components/result/TabWeather.vue'
 import TabGraph from '@/components/result/TabGraph.vue'
 import AIChat from '@/components/AIChat.vue'
 import TripExport from '@/components/result/TripExport.vue'
+import ReservationChecklist from '@/components/ReservationChecklist.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -134,6 +140,7 @@ const tabMapRef = ref<InstanceType<typeof TabMap> | null>(null)
 
 const visibleTabs = computed(() => {
   const tabs = [{ key: 'overview', icon: '📋', label: '行程概览' }]
+  tabs.push({ key: 'reservations', icon: '🔔', label: '预约待办' })
   if (tripPlan.value?.budget) tabs.push({ key: 'budget', icon: '💰', label: '预算明细' })
   tabs.push({ key: 'map', icon: '📍', label: '景点地图' })
   tabs.push({ key: 'itinerary', icon: '📅', label: '每日行程' })

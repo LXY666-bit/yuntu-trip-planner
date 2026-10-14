@@ -16,6 +16,42 @@ const apiClient = axios.create({
   }
 })
 
+import type { ValidationReport, EditProposal, PlanningConstraints } from '@/types/planning'
+
+export async function validateDraft(id: string): Promise<ValidationReport> {
+  return (await apiClient.get(`/api/trip/draft/${id}/validation`)).data
+}
+
+export async function getReservationTasks(kind: 'draft' | 'trip', id: string | number): Promise<{ tasks: import('@/types/reservation').ReservationTask[] }> {
+  return (await apiClient.get(`/api/reservations/${kind}/${id}`)).data
+}
+
+export async function markReservationBooked(kind: 'draft' | 'trip', id: string | number, key: string, booked: boolean): Promise<{ tasks: import('@/types/reservation').ReservationTask[] }> {
+  return (await apiClient.patch(`/api/reservations/${kind}/${id}/${key}`, { booked })).data
+}
+
+export async function exportReservationCalendar(kind: 'draft' | 'trip', id: string | number): Promise<Blob> {
+  return (await apiClient.get(`/api/reservations/${kind}/${id}/calendar.ics`, { responseType: 'blob' })).data
+}
+
+export async function savePlanningConstraints(id: string, body: PlanningConstraints) {
+  return (await apiClient.put(`/api/trip/draft/${id}/constraints`, body)).data
+}
+
+export async function proposeDraftEdit(id: string, body: { message: string; repair: boolean; day_index?: number }, signal?: AbortSignal): Promise<EditProposal> {
+  return (await apiClient.post(`/api/trip/draft/${id}/proposals`, body, { signal })).data
+}
+
+export async function confirmDraftEdit(id: string, proposalId: string, remember: boolean): Promise<EditProposal> {
+  return (await apiClient.post(`/api/trip/draft/${id}/proposals/${proposalId}/confirm`, {
+    confirmed: true, remember_preferences: remember,
+  })).data
+}
+
+export async function cancelDraftEdit(id: string, proposalId: string) {
+  return (await apiClient.delete(`/api/trip/draft/${id}/proposals/${proposalId}`)).data
+}
+
 /** 统一的 API 错误：调用方只需读 message，不再各写各的 error.response?.data?.detail */
 export class ApiError extends Error {
   status?: number
@@ -181,7 +217,7 @@ async function createSSEStream<T extends { type: string }>(
   try {
     while (true) {
       const { done, value } = await reader.read()
-      if (done) break
+      if (done) throw new Error('行程尚未完成，连接已结束，请重试')
       resetIdle()
 
       buffer += decoder.decode(value, { stream: true })

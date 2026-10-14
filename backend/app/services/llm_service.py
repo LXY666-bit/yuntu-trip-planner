@@ -6,6 +6,7 @@ from typing import Optional
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_openai import ChatOpenAI
 from ..config import get_settings
+from .run_metrics import METRICS_CALLBACK
 
 _llm_instance: Optional[BaseChatModel] = None
 _llm_lock = threading.Lock()
@@ -37,6 +38,7 @@ def get_llm() -> BaseChatModel:
 
         _llm_instance = ChatOpenAI(
             model=model_name,
+            callbacks=[METRICS_CALLBACK],
             api_key=api_key,
             base_url=base_url,
             temperature=0.2,
@@ -114,6 +116,7 @@ def get_fast_llm() -> BaseChatModel:
 
     return ChatOpenAI(
         model=model_name,
+        callbacks=[METRICS_CALLBACK],
         api_key=api_key,
         base_url=base_url,
         temperature=0.1,

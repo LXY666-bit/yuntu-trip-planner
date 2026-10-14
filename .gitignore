@@ -25,6 +25,8 @@ dist-ssr/
 
 # 日志
 *.log
+backend/data/run_metrics.jsonl
+backend/evals/results/demo-id.txt
 
 # 测试
 .pytest_cache/

@@ -35,6 +35,7 @@ from .nodes import (
 )
 from .utils.parsing import _create_fallback_plan
 from ...services.llm_service import get_llm
+from ...services.run_metrics import METRICS_CALLBACK
 from ...services.langchain_amap_tools import get_mcp_tools
 
 
@@ -127,9 +128,10 @@ def create_trip_planner_graph():
     workflow.add_node("save_preferences", save_preferences_node)
     workflow.add_node("day_plan_subgraph", day_plan_subgraph_node)
 
-    workflow.add_edge(START, "web_search_attractions")
-    workflow.add_edge(START, "search_weather")
-    workflow.add_edge(START, "search_hotel")
+    workflow.add_edge(START, "load_user_preferences")
+    workflow.add_edge("load_user_preferences", "web_search_attractions")
+    workflow.add_edge("load_user_preferences", "search_weather")
+    workflow.add_edge("load_user_preferences", "search_hotel")
 
     workflow.add_edge("web_search_attractions", "extract_attractions")
     workflow.add_edge("extract_attractions", "geocode_attractions")
@@ -347,7 +349,7 @@ class LangGraphTripPlanner:
         final_state = dict(initial_state)
 
         try:
-            async for chunk in self.discovery_app.astream(initial_state, stream_mode="updates"):
+            async for chunk in self.discovery_app.astream(initial_state, stream_mode="updates", config={"callbacks": [METRICS_CALLBACK]}):
                 for node_name, node_output in chunk.items():
                     if isinstance(node_output, dict):
                         for key, value in node_output.items():
@@ -426,7 +428,7 @@ class LangGraphTripPlanner:
         final_state = dict(initial_state)
 
         try:
-            async for chunk in self.planning_app.astream(initial_state, stream_mode="updates"):
+            async for chunk in self.planning_app.astream(initial_state, stream_mode="updates", config={"callbacks": [METRICS_CALLBACK]}):
                 for node_name, node_output in chunk.items():
                     if isinstance(node_output, dict):
                         for key, value in node_output.items():
@@ -488,7 +490,7 @@ class LangGraphTripPlanner:
         initial_state = self._build_initial_state(request, user_id)
 
         try:
-            final_state = await self.app.ainvoke(initial_state)
+            final_state = await self.app.ainvoke(initial_state, config={"callbacks": [METRICS_CALLBACK]})
             trip_plan = final_state.get("trip_plan")
 
             if not trip_plan:
@@ -545,7 +547,7 @@ class LangGraphTripPlanner:
         final_state = dict(initial_state)
 
         try:
-            async for chunk in self.app.astream(initial_state, stream_mode="updates"):
+            async for chunk in self.app.astream(initial_state, stream_mode="updates", config={"callbacks": [METRICS_CALLBACK]}):
                 for node_name, node_output in chunk.items():
                     if isinstance(node_output, dict):
                         for key, value in node_output.items():

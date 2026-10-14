@@ -19,6 +19,7 @@ from typing import Any, Dict, List, Optional, TypeVar, Callable
 
 from langchain_core.tools import BaseTool
 from langchain_mcp_adapters.client import MultiServerMCPClient
+from .run_metrics import METRICS_CALLBACK
 
 T = TypeVar("T", bound="BaseMCPService")
 
@@ -82,6 +83,8 @@ class BaseMCPService:
             config = self._build_mcp_config()
             self._client = MultiServerMCPClient(config)
             self._tools = await self._client.get_tools()
+            for tool in self._tools:
+                tool.callbacks = list(tool.callbacks or []) + [METRICS_CALLBACK]
 
             print(f"✅ {self._service_name} MCP 适配器初始化成功")
             print(f"   工具数量: {len(self._tools)}")

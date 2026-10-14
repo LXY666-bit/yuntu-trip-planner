@@ -4,6 +4,7 @@ import weakref
 from typing import Optional, Dict, Any, List
 
 from langchain_core.tools import BaseTool
+from ...services.run_metrics import current_run
 
 
 _amap_gates = weakref.WeakKeyDictionary()
@@ -60,6 +61,9 @@ async def _invoke_tool_with_retry(
 ) -> Any:
     last_error: Optional[Exception] = None
     for attempt in range(max_retries):
+        run = current_run.get()
+        if run and attempt:
+            run.retries += 1
         try:
             result = await asyncio.wait_for(
                 _invoke_amap_throttled(tool, arguments)
@@ -111,6 +115,9 @@ async def _invoke_llm_with_retry(
 ) -> Any:
     last_error: Optional[Exception] = None
     for attempt in range(max_retries):
+        run = current_run.get()
+        if run and attempt:
+            run.retries += 1
         try:
             result = await asyncio.wait_for(
                 llm_with_tools.ainvoke(messages), timeout=per_attempt_timeout

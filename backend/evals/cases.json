@@ -1,0 +1,3058 @@
+[
+  {
+    "id": "normal-01",
+    "scenario": "上海/normal/1",
+    "request": {
+      "city": "上海",
+      "start_date": "2026-10-13",
+      "end_date": "2026-10-13",
+      "travel_days": 1,
+      "transportation": "公共交通",
+      "accommodation": "经济型酒店",
+      "budget": 1000,
+      "max_day_minutes": 180,
+      "must_visit": [],
+      "companions": {
+        "count": 1,
+        "type": "solo"
+      }
+    },
+    "frozen_candidates": [
+      {
+        "name": "上海测试公园",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 90,
+        "location": {
+          "longitude": 121.47,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-0-park",
+        "ticket_price": 20,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "longitude": 121.47,
+        "latitude": 31.23
+      },
+      {
+        "name": "上海测试博物馆",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 60,
+        "location": {
+          "longitude": 121.47,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-0-museum",
+        "ticket_price": 10,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "indoor": true,
+        "longitude": 121.47,
+        "latitude": 31.23
+      }
+    ],
+    "synthetic_direct_response": {
+      "days": [
+        {
+          "day_index": 0,
+          "date": "2026-10-13",
+          "attractions": [
+            {
+              "name": "上海测试公园",
+              "address": "固定测试地址",
+              "description": "合成测试数据，不代表真实景点信息",
+              "visit_duration": 90,
+              "location": {
+                "longitude": 121.47,
+                "latitude": 31.23
+              },
+              "poi_id": "fixture-0-park",
+              "ticket_price": 20,
+              "price_status": "estimated",
+              "open_hours": "08:00-22:00"
+            }
+          ],
+          "day_start_time": "08:00",
+          "timeline_order": [
+            {
+              "kind": "attraction",
+              "ref_name": "上海测试公园"
+            }
+          ],
+          "route_segments": [],
+          "is_assembled": true
+        }
+      ]
+    },
+    "synthetic_repair_ids": [
+      "fixture-0-museum"
+    ],
+    "expected_baseline_codes": [],
+    "fault": null
+  },
+  {
+    "id": "normal-02",
+    "scenario": "北京/normal/2",
+    "request": {
+      "city": "北京",
+      "start_date": "2026-10-13",
+      "end_date": "2026-10-13",
+      "travel_days": 1,
+      "transportation": "公共交通",
+      "accommodation": "经济型酒店",
+      "budget": 1000,
+      "max_day_minutes": 210,
+      "must_visit": [],
+      "companions": {
+        "count": 2,
+        "type": "family"
+      }
+    },
+    "frozen_candidates": [
+      {
+        "name": "北京测试公园",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 90,
+        "location": {
+          "longitude": 121.48,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-1-park",
+        "ticket_price": 20,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "longitude": 121.48,
+        "latitude": 31.23
+      },
+      {
+        "name": "北京测试博物馆",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 60,
+        "location": {
+          "longitude": 121.48,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-1-museum",
+        "ticket_price": 10,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "indoor": true,
+        "longitude": 121.48,
+        "latitude": 31.23
+      }
+    ],
+    "synthetic_direct_response": {
+      "days": [
+        {
+          "day_index": 0,
+          "date": "2026-10-13",
+          "attractions": [
+            {
+              "name": "北京测试公园",
+              "address": "固定测试地址",
+              "description": "合成测试数据，不代表真实景点信息",
+              "visit_duration": 90,
+              "location": {
+                "longitude": 121.48,
+                "latitude": 31.23
+              },
+              "poi_id": "fixture-1-park",
+              "ticket_price": 20,
+              "price_status": "estimated",
+              "open_hours": "08:00-22:00"
+            }
+          ],
+          "day_start_time": "08:00",
+          "timeline_order": [
+            {
+              "kind": "attraction",
+              "ref_name": "北京测试公园"
+            }
+          ],
+          "route_segments": [],
+          "is_assembled": true
+        }
+      ]
+    },
+    "synthetic_repair_ids": [
+      "fixture-1-museum"
+    ],
+    "expected_baseline_codes": [],
+    "fault": null
+  },
+  {
+    "id": "normal-03",
+    "scenario": "成都/normal/3",
+    "request": {
+      "city": "成都",
+      "start_date": "2026-10-13",
+      "end_date": "2026-10-13",
+      "travel_days": 1,
+      "transportation": "公共交通",
+      "accommodation": "经济型酒店",
+      "budget": 1000,
+      "max_day_minutes": 240,
+      "must_visit": [],
+      "companions": {
+        "count": 3,
+        "type": "family"
+      }
+    },
+    "frozen_candidates": [
+      {
+        "name": "成都测试公园",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 90,
+        "location": {
+          "longitude": 121.49,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-2-park",
+        "ticket_price": 20,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "longitude": 121.49,
+        "latitude": 31.23
+      },
+      {
+        "name": "成都测试博物馆",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 60,
+        "location": {
+          "longitude": 121.49,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-2-museum",
+        "ticket_price": 10,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "indoor": true,
+        "longitude": 121.49,
+        "latitude": 31.23
+      }
+    ],
+    "synthetic_direct_response": {
+      "days": [
+        {
+          "day_index": 0,
+          "date": "2026-10-13",
+          "attractions": [
+            {
+              "name": "成都测试公园",
+              "address": "固定测试地址",
+              "description": "合成测试数据，不代表真实景点信息",
+              "visit_duration": 90,
+              "location": {
+                "longitude": 121.49,
+                "latitude": 31.23
+              },
+              "poi_id": "fixture-2-park",
+              "ticket_price": 20,
+              "price_status": "estimated",
+              "open_hours": "08:00-22:00"
+            }
+          ],
+          "day_start_time": "08:00",
+          "timeline_order": [
+            {
+              "kind": "attraction",
+              "ref_name": "成都测试公园"
+            }
+          ],
+          "route_segments": [],
+          "is_assembled": true
+        }
+      ]
+    },
+    "synthetic_repair_ids": [
+      "fixture-2-museum"
+    ],
+    "expected_baseline_codes": [],
+    "fault": null
+  },
+  {
+    "id": "normal-04",
+    "scenario": "杭州/normal/4",
+    "request": {
+      "city": "杭州",
+      "start_date": "2026-10-13",
+      "end_date": "2026-10-13",
+      "travel_days": 1,
+      "transportation": "公共交通",
+      "accommodation": "经济型酒店",
+      "budget": 1000,
+      "max_day_minutes": 270,
+      "must_visit": [],
+      "companions": {
+        "count": 4,
+        "type": "family"
+      }
+    },
+    "frozen_candidates": [
+      {
+        "name": "杭州测试公园",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 90,
+        "location": {
+          "longitude": 121.5,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-3-park",
+        "ticket_price": 20,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "longitude": 121.5,
+        "latitude": 31.23
+      },
+      {
+        "name": "杭州测试博物馆",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 60,
+        "location": {
+          "longitude": 121.5,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-3-museum",
+        "ticket_price": 10,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "indoor": true,
+        "longitude": 121.5,
+        "latitude": 31.23
+      }
+    ],
+    "synthetic_direct_response": {
+      "days": [
+        {
+          "day_index": 0,
+          "date": "2026-10-13",
+          "attractions": [
+            {
+              "name": "杭州测试公园",
+              "address": "固定测试地址",
+              "description": "合成测试数据，不代表真实景点信息",
+              "visit_duration": 90,
+              "location": {
+                "longitude": 121.5,
+                "latitude": 31.23
+              },
+              "poi_id": "fixture-3-park",
+              "ticket_price": 20,
+              "price_status": "estimated",
+              "open_hours": "08:00-22:00"
+            }
+          ],
+          "day_start_time": "08:00",
+          "timeline_order": [
+            {
+              "kind": "attraction",
+              "ref_name": "杭州测试公园"
+            }
+          ],
+          "route_segments": [],
+          "is_assembled": true
+        }
+      ]
+    },
+    "synthetic_repair_ids": [
+      "fixture-3-museum"
+    ],
+    "expected_baseline_codes": [],
+    "fault": null
+  },
+  {
+    "id": "normal-05",
+    "scenario": "苏州/normal/5",
+    "request": {
+      "city": "苏州",
+      "start_date": "2026-10-13",
+      "end_date": "2026-10-13",
+      "travel_days": 1,
+      "transportation": "公共交通",
+      "accommodation": "经济型酒店",
+      "budget": 1000,
+      "max_day_minutes": 300,
+      "must_visit": [],
+      "companions": {
+        "count": 5,
+        "type": "family"
+      }
+    },
+    "frozen_candidates": [
+      {
+        "name": "苏州测试公园",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 90,
+        "location": {
+          "longitude": 121.51,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-4-park",
+        "ticket_price": 20,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "longitude": 121.51,
+        "latitude": 31.23
+      },
+      {
+        "name": "苏州测试博物馆",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 60,
+        "location": {
+          "longitude": 121.51,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-4-museum",
+        "ticket_price": 10,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "indoor": true,
+        "longitude": 121.51,
+        "latitude": 31.23
+      }
+    ],
+    "synthetic_direct_response": {
+      "days": [
+        {
+          "day_index": 0,
+          "date": "2026-10-13",
+          "attractions": [
+            {
+              "name": "苏州测试公园",
+              "address": "固定测试地址",
+              "description": "合成测试数据，不代表真实景点信息",
+              "visit_duration": 90,
+              "location": {
+                "longitude": 121.51,
+                "latitude": 31.23
+              },
+              "poi_id": "fixture-4-park",
+              "ticket_price": 20,
+              "price_status": "estimated",
+              "open_hours": "08:00-22:00"
+            }
+          ],
+          "day_start_time": "08:00",
+          "timeline_order": [
+            {
+              "kind": "attraction",
+              "ref_name": "苏州测试公园"
+            }
+          ],
+          "route_segments": [],
+          "is_assembled": true
+        }
+      ]
+    },
+    "synthetic_repair_ids": [
+      "fixture-4-museum"
+    ],
+    "expected_baseline_codes": [],
+    "fault": null
+  },
+  {
+    "id": "must_visit-01",
+    "scenario": "上海/must_visit/1",
+    "request": {
+      "city": "上海",
+      "start_date": "2026-10-13",
+      "end_date": "2026-10-13",
+      "travel_days": 1,
+      "transportation": "公共交通",
+      "accommodation": "经济型酒店",
+      "budget": 1000,
+      "max_day_minutes": 600,
+      "must_visit": [
+        "上海测试博物馆"
+      ]
+    },
+    "frozen_candidates": [
+      {
+        "name": "上海测试公园",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 90,
+        "location": {
+          "longitude": 121.47,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-0-park",
+        "ticket_price": 20,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "longitude": 121.47,
+        "latitude": 31.23
+      },
+      {
+        "name": "上海测试博物馆",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 60,
+        "location": {
+          "longitude": 121.47,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-0-museum",
+        "ticket_price": 10,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "indoor": true,
+        "longitude": 121.47,
+        "latitude": 31.23
+      }
+    ],
+    "synthetic_direct_response": {
+      "days": [
+        {
+          "day_index": 0,
+          "date": "2026-10-13",
+          "attractions": [
+            {
+              "name": "上海测试公园",
+              "address": "固定测试地址",
+              "description": "合成测试数据，不代表真实景点信息",
+              "visit_duration": 90,
+              "location": {
+                "longitude": 121.47,
+                "latitude": 31.23
+              },
+              "poi_id": "fixture-0-park",
+              "ticket_price": 20,
+              "price_status": "estimated",
+              "open_hours": "08:00-22:00"
+            }
+          ],
+          "day_start_time": "08:00",
+          "timeline_order": [
+            {
+              "kind": "attraction",
+              "ref_name": "上海测试公园"
+            }
+          ],
+          "route_segments": [],
+          "is_assembled": true
+        }
+      ]
+    },
+    "synthetic_repair_ids": [
+      "fixture-0-museum"
+    ],
+    "expected_baseline_codes": [
+      "missing_must_visit"
+    ],
+    "fault": null
+  },
+  {
+    "id": "must_visit-02",
+    "scenario": "北京/must_visit/2",
+    "request": {
+      "city": "北京",
+      "start_date": "2026-10-13",
+      "end_date": "2026-10-13",
+      "travel_days": 1,
+      "transportation": "公共交通",
+      "accommodation": "经济型酒店",
+      "budget": 1000,
+      "max_day_minutes": 600,
+      "must_visit": [
+        "北京测试博物馆"
+      ]
+    },
+    "frozen_candidates": [
+      {
+        "name": "北京测试公园",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 90,
+        "location": {
+          "longitude": 121.48,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-1-park",
+        "ticket_price": 20,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "longitude": 121.48,
+        "latitude": 31.23
+      },
+      {
+        "name": "北京测试博物馆",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 60,
+        "location": {
+          "longitude": 121.48,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-1-museum",
+        "ticket_price": 10,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "indoor": true,
+        "longitude": 121.48,
+        "latitude": 31.23
+      }
+    ],
+    "synthetic_direct_response": {
+      "days": [
+        {
+          "day_index": 0,
+          "date": "2026-10-13",
+          "attractions": [
+            {
+              "name": "北京测试公园",
+              "address": "固定测试地址",
+              "description": "合成测试数据，不代表真实景点信息",
+              "visit_duration": 90,
+              "location": {
+                "longitude": 121.48,
+                "latitude": 31.23
+              },
+              "poi_id": "fixture-1-park",
+              "ticket_price": 20,
+              "price_status": "estimated",
+              "open_hours": "08:00-22:00"
+            }
+          ],
+          "day_start_time": "08:00",
+          "timeline_order": [
+            {
+              "kind": "attraction",
+              "ref_name": "北京测试公园"
+            }
+          ],
+          "route_segments": [],
+          "is_assembled": true
+        }
+      ]
+    },
+    "synthetic_repair_ids": [
+      "fixture-1-museum"
+    ],
+    "expected_baseline_codes": [
+      "missing_must_visit"
+    ],
+    "fault": null
+  },
+  {
+    "id": "must_visit-03",
+    "scenario": "成都/must_visit/3",
+    "request": {
+      "city": "成都",
+      "start_date": "2026-10-13",
+      "end_date": "2026-10-13",
+      "travel_days": 1,
+      "transportation": "公共交通",
+      "accommodation": "经济型酒店",
+      "budget": 1000,
+      "max_day_minutes": 600,
+      "must_visit": [
+        "成都测试博物馆"
+      ]
+    },
+    "frozen_candidates": [
+      {
+        "name": "成都测试公园",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 90,
+        "location": {
+          "longitude": 121.49,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-2-park",
+        "ticket_price": 20,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "longitude": 121.49,
+        "latitude": 31.23
+      },
+      {
+        "name": "成都测试博物馆",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 60,
+        "location": {
+          "longitude": 121.49,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-2-museum",
+        "ticket_price": 10,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "indoor": true,
+        "longitude": 121.49,
+        "latitude": 31.23
+      }
+    ],
+    "synthetic_direct_response": {
+      "days": [
+        {
+          "day_index": 0,
+          "date": "2026-10-13",
+          "attractions": [
+            {
+              "name": "成都测试公园",
+              "address": "固定测试地址",
+              "description": "合成测试数据，不代表真实景点信息",
+              "visit_duration": 90,
+              "location": {
+                "longitude": 121.49,
+                "latitude": 31.23
+              },
+              "poi_id": "fixture-2-park",
+              "ticket_price": 20,
+              "price_status": "estimated",
+              "open_hours": "08:00-22:00"
+            }
+          ],
+          "day_start_time": "08:00",
+          "timeline_order": [
+            {
+              "kind": "attraction",
+              "ref_name": "成都测试公园"
+            }
+          ],
+          "route_segments": [],
+          "is_assembled": true
+        }
+      ]
+    },
+    "synthetic_repair_ids": [
+      "fixture-2-museum"
+    ],
+    "expected_baseline_codes": [
+      "missing_must_visit"
+    ],
+    "fault": null
+  },
+  {
+    "id": "must_visit-04",
+    "scenario": "杭州/must_visit/4",
+    "request": {
+      "city": "杭州",
+      "start_date": "2026-10-13",
+      "end_date": "2026-10-13",
+      "travel_days": 1,
+      "transportation": "公共交通",
+      "accommodation": "经济型酒店",
+      "budget": 1000,
+      "max_day_minutes": 600,
+      "must_visit": [
+        "杭州测试博物馆"
+      ]
+    },
+    "frozen_candidates": [
+      {
+        "name": "杭州测试公园",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 90,
+        "location": {
+          "longitude": 121.5,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-3-park",
+        "ticket_price": 20,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "longitude": 121.5,
+        "latitude": 31.23
+      },
+      {
+        "name": "杭州测试博物馆",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 60,
+        "location": {
+          "longitude": 121.5,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-3-museum",
+        "ticket_price": 10,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "indoor": true,
+        "longitude": 121.5,
+        "latitude": 31.23
+      }
+    ],
+    "synthetic_direct_response": {
+      "days": [
+        {
+          "day_index": 0,
+          "date": "2026-10-13",
+          "attractions": [
+            {
+              "name": "杭州测试公园",
+              "address": "固定测试地址",
+              "description": "合成测试数据，不代表真实景点信息",
+              "visit_duration": 90,
+              "location": {
+                "longitude": 121.5,
+                "latitude": 31.23
+              },
+              "poi_id": "fixture-3-park",
+              "ticket_price": 20,
+              "price_status": "estimated",
+              "open_hours": "08:00-22:00"
+            }
+          ],
+          "day_start_time": "08:00",
+          "timeline_order": [
+            {
+              "kind": "attraction",
+              "ref_name": "杭州测试公园"
+            }
+          ],
+          "route_segments": [],
+          "is_assembled": true
+        }
+      ]
+    },
+    "synthetic_repair_ids": [
+      "fixture-3-museum"
+    ],
+    "expected_baseline_codes": [
+      "missing_must_visit"
+    ],
+    "fault": null
+  },
+  {
+    "id": "must_visit-05",
+    "scenario": "苏州/must_visit/5",
+    "request": {
+      "city": "苏州",
+      "start_date": "2026-10-13",
+      "end_date": "2026-10-13",
+      "travel_days": 1,
+      "transportation": "公共交通",
+      "accommodation": "经济型酒店",
+      "budget": 1000,
+      "max_day_minutes": 600,
+      "must_visit": [
+        "苏州测试博物馆"
+      ]
+    },
+    "frozen_candidates": [
+      {
+        "name": "苏州测试公园",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 90,
+        "location": {
+          "longitude": 121.51,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-4-park",
+        "ticket_price": 20,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "longitude": 121.51,
+        "latitude": 31.23
+      },
+      {
+        "name": "苏州测试博物馆",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 60,
+        "location": {
+          "longitude": 121.51,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-4-museum",
+        "ticket_price": 10,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "indoor": true,
+        "longitude": 121.51,
+        "latitude": 31.23
+      }
+    ],
+    "synthetic_direct_response": {
+      "days": [
+        {
+          "day_index": 0,
+          "date": "2026-10-13",
+          "attractions": [
+            {
+              "name": "苏州测试公园",
+              "address": "固定测试地址",
+              "description": "合成测试数据，不代表真实景点信息",
+              "visit_duration": 90,
+              "location": {
+                "longitude": 121.51,
+                "latitude": 31.23
+              },
+              "poi_id": "fixture-4-park",
+              "ticket_price": 20,
+              "price_status": "estimated",
+              "open_hours": "08:00-22:00"
+            }
+          ],
+          "day_start_time": "08:00",
+          "timeline_order": [
+            {
+              "kind": "attraction",
+              "ref_name": "苏州测试公园"
+            }
+          ],
+          "route_segments": [],
+          "is_assembled": true
+        }
+      ]
+    },
+    "synthetic_repair_ids": [
+      "fixture-4-museum"
+    ],
+    "expected_baseline_codes": [
+      "missing_must_visit"
+    ],
+    "fault": null
+  },
+  {
+    "id": "opening-01",
+    "scenario": "上海/opening/1",
+    "request": {
+      "city": "上海",
+      "start_date": "2026-10-13",
+      "end_date": "2026-10-13",
+      "travel_days": 1,
+      "transportation": "公共交通",
+      "accommodation": "经济型酒店",
+      "budget": 1000,
+      "max_day_minutes": 600,
+      "must_visit": []
+    },
+    "frozen_candidates": [
+      {
+        "name": "上海测试公园",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 90,
+        "location": {
+          "longitude": 121.47,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-0-park",
+        "ticket_price": 20,
+        "price_status": "estimated",
+        "open_hours": "09:00-09:30",
+        "longitude": 121.47,
+        "latitude": 31.23
+      },
+      {
+        "name": "上海测试博物馆",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 60,
+        "location": {
+          "longitude": 121.47,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-0-museum",
+        "ticket_price": 10,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "indoor": true,
+        "longitude": 121.47,
+        "latitude": 31.23
+      }
+    ],
+    "synthetic_direct_response": {
+      "days": [
+        {
+          "day_index": 0,
+          "date": "2026-10-13",
+          "attractions": [
+            {
+              "name": "上海测试公园",
+              "address": "固定测试地址",
+              "description": "合成测试数据，不代表真实景点信息",
+              "visit_duration": 90,
+              "location": {
+                "longitude": 121.47,
+                "latitude": 31.23
+              },
+              "poi_id": "fixture-0-park",
+              "ticket_price": 20,
+              "price_status": "estimated",
+              "open_hours": "09:00-09:30"
+            }
+          ],
+          "day_start_time": "08:00",
+          "timeline_order": [
+            {
+              "kind": "attraction",
+              "ref_name": "上海测试公园"
+            }
+          ],
+          "route_segments": [],
+          "is_assembled": true
+        }
+      ]
+    },
+    "synthetic_repair_ids": [
+      "fixture-0-museum"
+    ],
+    "expected_baseline_codes": [
+      "opening_conflict"
+    ],
+    "fault": null
+  },
+  {
+    "id": "opening-02",
+    "scenario": "北京/opening/2",
+    "request": {
+      "city": "北京",
+      "start_date": "2026-10-13",
+      "end_date": "2026-10-13",
+      "travel_days": 1,
+      "transportation": "公共交通",
+      "accommodation": "经济型酒店",
+      "budget": 1000,
+      "max_day_minutes": 600,
+      "must_visit": []
+    },
+    "frozen_candidates": [
+      {
+        "name": "北京测试公园",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 90,
+        "location": {
+          "longitude": 121.48,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-1-park",
+        "ticket_price": 20,
+        "price_status": "estimated",
+        "open_hours": "08:00-08:45",
+        "longitude": 121.48,
+        "latitude": 31.23
+      },
+      {
+        "name": "北京测试博物馆",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 60,
+        "location": {
+          "longitude": 121.48,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-1-museum",
+        "ticket_price": 10,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "indoor": true,
+        "longitude": 121.48,
+        "latitude": 31.23
+      }
+    ],
+    "synthetic_direct_response": {
+      "days": [
+        {
+          "day_index": 0,
+          "date": "2026-10-13",
+          "attractions": [
+            {
+              "name": "北京测试公园",
+              "address": "固定测试地址",
+              "description": "合成测试数据，不代表真实景点信息",
+              "visit_duration": 90,
+              "location": {
+                "longitude": 121.48,
+                "latitude": 31.23
+              },
+              "poi_id": "fixture-1-park",
+              "ticket_price": 20,
+              "price_status": "estimated",
+              "open_hours": "08:00-08:45"
+            }
+          ],
+          "day_start_time": "08:00",
+          "timeline_order": [
+            {
+              "kind": "attraction",
+              "ref_name": "北京测试公园"
+            }
+          ],
+          "route_segments": [],
+          "is_assembled": true
+        }
+      ]
+    },
+    "synthetic_repair_ids": [
+      "fixture-1-museum"
+    ],
+    "expected_baseline_codes": [
+      "opening_conflict"
+    ],
+    "fault": null
+  },
+  {
+    "id": "opening-03",
+    "scenario": "成都/opening/3",
+    "request": {
+      "city": "成都",
+      "start_date": "2026-10-13",
+      "end_date": "2026-10-13",
+      "travel_days": 1,
+      "transportation": "公共交通",
+      "accommodation": "经济型酒店",
+      "budget": 1000,
+      "max_day_minutes": 600,
+      "must_visit": []
+    },
+    "frozen_candidates": [
+      {
+        "name": "成都测试公园",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 90,
+        "location": {
+          "longitude": 121.49,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-2-park",
+        "ticket_price": 20,
+        "price_status": "estimated",
+        "open_hours": "周二闭馆",
+        "longitude": 121.49,
+        "latitude": 31.23
+      },
+      {
+        "name": "成都测试博物馆",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 60,
+        "location": {
+          "longitude": 121.49,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-2-museum",
+        "ticket_price": 10,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "indoor": true,
+        "longitude": 121.49,
+        "latitude": 31.23
+      }
+    ],
+    "synthetic_direct_response": {
+      "days": [
+        {
+          "day_index": 0,
+          "date": "2026-10-13",
+          "attractions": [
+            {
+              "name": "成都测试公园",
+              "address": "固定测试地址",
+              "description": "合成测试数据，不代表真实景点信息",
+              "visit_duration": 90,
+              "location": {
+                "longitude": 121.49,
+                "latitude": 31.23
+              },
+              "poi_id": "fixture-2-park",
+              "ticket_price": 20,
+              "price_status": "estimated",
+              "open_hours": "周二闭馆"
+            }
+          ],
+          "day_start_time": "08:00",
+          "timeline_order": [
+            {
+              "kind": "attraction",
+              "ref_name": "成都测试公园"
+            }
+          ],
+          "route_segments": [],
+          "is_assembled": true
+        }
+      ]
+    },
+    "synthetic_repair_ids": [
+      "fixture-2-museum"
+    ],
+    "expected_baseline_codes": [
+      "opening_conflict"
+    ],
+    "fault": null
+  },
+  {
+    "id": "opening-04",
+    "scenario": "杭州/opening/4",
+    "request": {
+      "city": "杭州",
+      "start_date": "2026-10-13",
+      "end_date": "2026-10-13",
+      "travel_days": 1,
+      "transportation": "公共交通",
+      "accommodation": "经济型酒店",
+      "budget": 1000,
+      "max_day_minutes": 600,
+      "must_visit": []
+    },
+    "frozen_candidates": [
+      {
+        "name": "杭州测试公园",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 90,
+        "location": {
+          "longitude": 121.5,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-3-park",
+        "ticket_price": 20,
+        "price_status": "estimated",
+        "open_hours": "18:00-18:30",
+        "longitude": 121.5,
+        "latitude": 31.23
+      },
+      {
+        "name": "杭州测试博物馆",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 60,
+        "location": {
+          "longitude": 121.5,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-3-museum",
+        "ticket_price": 10,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "indoor": true,
+        "longitude": 121.5,
+        "latitude": 31.23
+      }
+    ],
+    "synthetic_direct_response": {
+      "days": [
+        {
+          "day_index": 0,
+          "date": "2026-10-13",
+          "attractions": [
+            {
+              "name": "杭州测试公园",
+              "address": "固定测试地址",
+              "description": "合成测试数据，不代表真实景点信息",
+              "visit_duration": 90,
+              "location": {
+                "longitude": 121.5,
+                "latitude": 31.23
+              },
+              "poi_id": "fixture-3-park",
+              "ticket_price": 20,
+              "price_status": "estimated",
+              "open_hours": "18:00-18:30"
+            }
+          ],
+          "day_start_time": "08:00",
+          "timeline_order": [
+            {
+              "kind": "attraction",
+              "ref_name": "杭州测试公园"
+            }
+          ],
+          "route_segments": [],
+          "is_assembled": true
+        }
+      ]
+    },
+    "synthetic_repair_ids": [
+      "fixture-3-museum"
+    ],
+    "expected_baseline_codes": [
+      "opening_conflict"
+    ],
+    "fault": null
+  },
+  {
+    "id": "opening-05",
+    "scenario": "苏州/opening/5",
+    "request": {
+      "city": "苏州",
+      "start_date": "2026-10-13",
+      "end_date": "2026-10-13",
+      "travel_days": 1,
+      "transportation": "公共交通",
+      "accommodation": "经济型酒店",
+      "budget": 1000,
+      "max_day_minutes": 600,
+      "must_visit": []
+    },
+    "frozen_candidates": [
+      {
+        "name": "苏州测试公园",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 90,
+        "location": {
+          "longitude": 121.51,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-4-park",
+        "ticket_price": 20,
+        "price_status": "estimated",
+        "open_hours": "07:00-08:00",
+        "longitude": 121.51,
+        "latitude": 31.23
+      },
+      {
+        "name": "苏州测试博物馆",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 60,
+        "location": {
+          "longitude": 121.51,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-4-museum",
+        "ticket_price": 10,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "indoor": true,
+        "longitude": 121.51,
+        "latitude": 31.23
+      }
+    ],
+    "synthetic_direct_response": {
+      "days": [
+        {
+          "day_index": 0,
+          "date": "2026-10-13",
+          "attractions": [
+            {
+              "name": "苏州测试公园",
+              "address": "固定测试地址",
+              "description": "合成测试数据，不代表真实景点信息",
+              "visit_duration": 90,
+              "location": {
+                "longitude": 121.51,
+                "latitude": 31.23
+              },
+              "poi_id": "fixture-4-park",
+              "ticket_price": 20,
+              "price_status": "estimated",
+              "open_hours": "07:00-08:00"
+            }
+          ],
+          "day_start_time": "08:00",
+          "timeline_order": [
+            {
+              "kind": "attraction",
+              "ref_name": "苏州测试公园"
+            }
+          ],
+          "route_segments": [],
+          "is_assembled": true
+        }
+      ]
+    },
+    "synthetic_repair_ids": [
+      "fixture-4-museum"
+    ],
+    "expected_baseline_codes": [
+      "opening_conflict"
+    ],
+    "fault": null
+  },
+  {
+    "id": "overload-01",
+    "scenario": "上海/overload/1",
+    "request": {
+      "city": "上海",
+      "start_date": "2026-10-13",
+      "end_date": "2026-10-13",
+      "travel_days": 1,
+      "transportation": "公共交通",
+      "accommodation": "经济型酒店",
+      "budget": 1000,
+      "max_day_minutes": 180,
+      "must_visit": []
+    },
+    "frozen_candidates": [
+      {
+        "name": "上海测试公园0",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 180,
+        "location": {
+          "longitude": 121.47,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-0-0",
+        "ticket_price": 20,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "longitude": 121.47,
+        "latitude": 31.23
+      },
+      {
+        "name": "上海测试公园1",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 180,
+        "location": {
+          "longitude": 121.47,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-0-1",
+        "ticket_price": 20,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "longitude": 121.47,
+        "latitude": 31.23
+      },
+      {
+        "name": "上海测试公园2",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 180,
+        "location": {
+          "longitude": 121.47,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-0-2",
+        "ticket_price": 20,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "longitude": 121.47,
+        "latitude": 31.23
+      },
+      {
+        "name": "上海测试博物馆",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 60,
+        "location": {
+          "longitude": 121.47,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-0-museum",
+        "ticket_price": 10,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "indoor": true,
+        "longitude": 121.47,
+        "latitude": 31.23
+      }
+    ],
+    "synthetic_direct_response": {
+      "days": [
+        {
+          "day_index": 0,
+          "date": "2026-10-13",
+          "attractions": [
+            {
+              "name": "上海测试公园0",
+              "address": "固定测试地址",
+              "description": "合成测试数据，不代表真实景点信息",
+              "visit_duration": 180,
+              "location": {
+                "longitude": 121.47,
+                "latitude": 31.23
+              },
+              "poi_id": "fixture-0-0",
+              "ticket_price": 20,
+              "price_status": "estimated",
+              "open_hours": "08:00-22:00"
+            },
+            {
+              "name": "上海测试公园1",
+              "address": "固定测试地址",
+              "description": "合成测试数据，不代表真实景点信息",
+              "visit_duration": 180,
+              "location": {
+                "longitude": 121.47,
+                "latitude": 31.23
+              },
+              "poi_id": "fixture-0-1",
+              "ticket_price": 20,
+              "price_status": "estimated",
+              "open_hours": "08:00-22:00"
+            },
+            {
+              "name": "上海测试公园2",
+              "address": "固定测试地址",
+              "description": "合成测试数据，不代表真实景点信息",
+              "visit_duration": 180,
+              "location": {
+                "longitude": 121.47,
+                "latitude": 31.23
+              },
+              "poi_id": "fixture-0-2",
+              "ticket_price": 20,
+              "price_status": "estimated",
+              "open_hours": "08:00-22:00"
+            }
+          ],
+          "day_start_time": "08:00",
+          "timeline_order": [
+            {
+              "kind": "attraction",
+              "ref_name": "上海测试公园0"
+            },
+            {
+              "kind": "attraction",
+              "ref_name": "上海测试公园1"
+            },
+            {
+              "kind": "attraction",
+              "ref_name": "上海测试公园2"
+            }
+          ],
+          "route_segments": [],
+          "is_assembled": true
+        }
+      ]
+    },
+    "synthetic_repair_ids": [
+      "fixture-0-museum"
+    ],
+    "expected_baseline_codes": [
+      "day_overloaded"
+    ],
+    "fault": null
+  },
+  {
+    "id": "overload-02",
+    "scenario": "北京/overload/2",
+    "request": {
+      "city": "北京",
+      "start_date": "2026-10-13",
+      "end_date": "2026-10-13",
+      "travel_days": 1,
+      "transportation": "公共交通",
+      "accommodation": "经济型酒店",
+      "budget": 1000,
+      "max_day_minutes": 195,
+      "must_visit": []
+    },
+    "frozen_candidates": [
+      {
+        "name": "北京测试公园0",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 180,
+        "location": {
+          "longitude": 121.48,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-1-0",
+        "ticket_price": 20,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "longitude": 121.48,
+        "latitude": 31.23
+      },
+      {
+        "name": "北京测试公园1",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 180,
+        "location": {
+          "longitude": 121.48,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-1-1",
+        "ticket_price": 20,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "longitude": 121.48,
+        "latitude": 31.23
+      },
+      {
+        "name": "北京测试公园2",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 180,
+        "location": {
+          "longitude": 121.48,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-1-2",
+        "ticket_price": 20,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "longitude": 121.48,
+        "latitude": 31.23
+      },
+      {
+        "name": "北京测试博物馆",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 60,
+        "location": {
+          "longitude": 121.48,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-1-museum",
+        "ticket_price": 10,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "indoor": true,
+        "longitude": 121.48,
+        "latitude": 31.23
+      }
+    ],
+    "synthetic_direct_response": {
+      "days": [
+        {
+          "day_index": 0,
+          "date": "2026-10-13",
+          "attractions": [
+            {
+              "name": "北京测试公园0",
+              "address": "固定测试地址",
+              "description": "合成测试数据，不代表真实景点信息",
+              "visit_duration": 180,
+              "location": {
+                "longitude": 121.48,
+                "latitude": 31.23
+              },
+              "poi_id": "fixture-1-0",
+              "ticket_price": 20,
+              "price_status": "estimated",
+              "open_hours": "08:00-22:00"
+            },
+            {
+              "name": "北京测试公园1",
+              "address": "固定测试地址",
+              "description": "合成测试数据，不代表真实景点信息",
+              "visit_duration": 180,
+              "location": {
+                "longitude": 121.48,
+                "latitude": 31.23
+              },
+              "poi_id": "fixture-1-1",
+              "ticket_price": 20,
+              "price_status": "estimated",
+              "open_hours": "08:00-22:00"
+            },
+            {
+              "name": "北京测试公园2",
+              "address": "固定测试地址",
+              "description": "合成测试数据，不代表真实景点信息",
+              "visit_duration": 180,
+              "location": {
+                "longitude": 121.48,
+                "latitude": 31.23
+              },
+              "poi_id": "fixture-1-2",
+              "ticket_price": 20,
+              "price_status": "estimated",
+              "open_hours": "08:00-22:00"
+            }
+          ],
+          "day_start_time": "08:00",
+          "timeline_order": [
+            {
+              "kind": "attraction",
+              "ref_name": "北京测试公园0"
+            },
+            {
+              "kind": "attraction",
+              "ref_name": "北京测试公园1"
+            },
+            {
+              "kind": "attraction",
+              "ref_name": "北京测试公园2"
+            }
+          ],
+          "route_segments": [],
+          "is_assembled": true
+        }
+      ]
+    },
+    "synthetic_repair_ids": [
+      "fixture-1-museum"
+    ],
+    "expected_baseline_codes": [
+      "day_overloaded"
+    ],
+    "fault": null
+  },
+  {
+    "id": "overload-03",
+    "scenario": "成都/overload/3",
+    "request": {
+      "city": "成都",
+      "start_date": "2026-10-13",
+      "end_date": "2026-10-13",
+      "travel_days": 1,
+      "transportation": "公共交通",
+      "accommodation": "经济型酒店",
+      "budget": 1000,
+      "max_day_minutes": 210,
+      "must_visit": []
+    },
+    "frozen_candidates": [
+      {
+        "name": "成都测试公园0",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 180,
+        "location": {
+          "longitude": 121.49,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-2-0",
+        "ticket_price": 20,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "longitude": 121.49,
+        "latitude": 31.23
+      },
+      {
+        "name": "成都测试公园1",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 180,
+        "location": {
+          "longitude": 121.49,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-2-1",
+        "ticket_price": 20,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "longitude": 121.49,
+        "latitude": 31.23
+      },
+      {
+        "name": "成都测试公园2",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 180,
+        "location": {
+          "longitude": 121.49,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-2-2",
+        "ticket_price": 20,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "longitude": 121.49,
+        "latitude": 31.23
+      },
+      {
+        "name": "成都测试博物馆",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 60,
+        "location": {
+          "longitude": 121.49,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-2-museum",
+        "ticket_price": 10,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "indoor": true,
+        "longitude": 121.49,
+        "latitude": 31.23
+      }
+    ],
+    "synthetic_direct_response": {
+      "days": [
+        {
+          "day_index": 0,
+          "date": "2026-10-13",
+          "attractions": [
+            {
+              "name": "成都测试公园0",
+              "address": "固定测试地址",
+              "description": "合成测试数据，不代表真实景点信息",
+              "visit_duration": 180,
+              "location": {
+                "longitude": 121.49,
+                "latitude": 31.23
+              },
+              "poi_id": "fixture-2-0",
+              "ticket_price": 20,
+              "price_status": "estimated",
+              "open_hours": "08:00-22:00"
+            },
+            {
+              "name": "成都测试公园1",
+              "address": "固定测试地址",
+              "description": "合成测试数据，不代表真实景点信息",
+              "visit_duration": 180,
+              "location": {
+                "longitude": 121.49,
+                "latitude": 31.23
+              },
+              "poi_id": "fixture-2-1",
+              "ticket_price": 20,
+              "price_status": "estimated",
+              "open_hours": "08:00-22:00"
+            },
+            {
+              "name": "成都测试公园2",
+              "address": "固定测试地址",
+              "description": "合成测试数据，不代表真实景点信息",
+              "visit_duration": 180,
+              "location": {
+                "longitude": 121.49,
+                "latitude": 31.23
+              },
+              "poi_id": "fixture-2-2",
+              "ticket_price": 20,
+              "price_status": "estimated",
+              "open_hours": "08:00-22:00"
+            }
+          ],
+          "day_start_time": "08:00",
+          "timeline_order": [
+            {
+              "kind": "attraction",
+              "ref_name": "成都测试公园0"
+            },
+            {
+              "kind": "attraction",
+              "ref_name": "成都测试公园1"
+            },
+            {
+              "kind": "attraction",
+              "ref_name": "成都测试公园2"
+            }
+          ],
+          "route_segments": [],
+          "is_assembled": true
+        }
+      ]
+    },
+    "synthetic_repair_ids": [
+      "fixture-2-museum"
+    ],
+    "expected_baseline_codes": [
+      "day_overloaded"
+    ],
+    "fault": null
+  },
+  {
+    "id": "overload-04",
+    "scenario": "杭州/overload/4",
+    "request": {
+      "city": "杭州",
+      "start_date": "2026-10-13",
+      "end_date": "2026-10-13",
+      "travel_days": 1,
+      "transportation": "公共交通",
+      "accommodation": "经济型酒店",
+      "budget": 1000,
+      "max_day_minutes": 225,
+      "must_visit": []
+    },
+    "frozen_candidates": [
+      {
+        "name": "杭州测试公园0",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 180,
+        "location": {
+          "longitude": 121.5,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-3-0",
+        "ticket_price": 20,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "longitude": 121.5,
+        "latitude": 31.23
+      },
+      {
+        "name": "杭州测试公园1",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 180,
+        "location": {
+          "longitude": 121.5,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-3-1",
+        "ticket_price": 20,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "longitude": 121.5,
+        "latitude": 31.23
+      },
+      {
+        "name": "杭州测试公园2",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 180,
+        "location": {
+          "longitude": 121.5,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-3-2",
+        "ticket_price": 20,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "longitude": 121.5,
+        "latitude": 31.23
+      },
+      {
+        "name": "杭州测试博物馆",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 60,
+        "location": {
+          "longitude": 121.5,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-3-museum",
+        "ticket_price": 10,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "indoor": true,
+        "longitude": 121.5,
+        "latitude": 31.23
+      }
+    ],
+    "synthetic_direct_response": {
+      "days": [
+        {
+          "day_index": 0,
+          "date": "2026-10-13",
+          "attractions": [
+            {
+              "name": "杭州测试公园0",
+              "address": "固定测试地址",
+              "description": "合成测试数据，不代表真实景点信息",
+              "visit_duration": 180,
+              "location": {
+                "longitude": 121.5,
+                "latitude": 31.23
+              },
+              "poi_id": "fixture-3-0",
+              "ticket_price": 20,
+              "price_status": "estimated",
+              "open_hours": "08:00-22:00"
+            },
+            {
+              "name": "杭州测试公园1",
+              "address": "固定测试地址",
+              "description": "合成测试数据，不代表真实景点信息",
+              "visit_duration": 180,
+              "location": {
+                "longitude": 121.5,
+                "latitude": 31.23
+              },
+              "poi_id": "fixture-3-1",
+              "ticket_price": 20,
+              "price_status": "estimated",
+              "open_hours": "08:00-22:00"
+            },
+            {
+              "name": "杭州测试公园2",
+              "address": "固定测试地址",
+              "description": "合成测试数据，不代表真实景点信息",
+              "visit_duration": 180,
+              "location": {
+                "longitude": 121.5,
+                "latitude": 31.23
+              },
+              "poi_id": "fixture-3-2",
+              "ticket_price": 20,
+              "price_status": "estimated",
+              "open_hours": "08:00-22:00"
+            }
+          ],
+          "day_start_time": "08:00",
+          "timeline_order": [
+            {
+              "kind": "attraction",
+              "ref_name": "杭州测试公园0"
+            },
+            {
+              "kind": "attraction",
+              "ref_name": "杭州测试公园1"
+            },
+            {
+              "kind": "attraction",
+              "ref_name": "杭州测试公园2"
+            }
+          ],
+          "route_segments": [],
+          "is_assembled": true
+        }
+      ]
+    },
+    "synthetic_repair_ids": [
+      "fixture-3-museum"
+    ],
+    "expected_baseline_codes": [
+      "day_overloaded"
+    ],
+    "fault": null
+  },
+  {
+    "id": "overload-05",
+    "scenario": "苏州/overload/5",
+    "request": {
+      "city": "苏州",
+      "start_date": "2026-10-13",
+      "end_date": "2026-10-13",
+      "travel_days": 1,
+      "transportation": "公共交通",
+      "accommodation": "经济型酒店",
+      "budget": 1000,
+      "max_day_minutes": 240,
+      "must_visit": []
+    },
+    "frozen_candidates": [
+      {
+        "name": "苏州测试公园0",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 180,
+        "location": {
+          "longitude": 121.51,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-4-0",
+        "ticket_price": 20,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "longitude": 121.51,
+        "latitude": 31.23
+      },
+      {
+        "name": "苏州测试公园1",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 180,
+        "location": {
+          "longitude": 121.51,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-4-1",
+        "ticket_price": 20,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "longitude": 121.51,
+        "latitude": 31.23
+      },
+      {
+        "name": "苏州测试公园2",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 180,
+        "location": {
+          "longitude": 121.51,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-4-2",
+        "ticket_price": 20,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "longitude": 121.51,
+        "latitude": 31.23
+      },
+      {
+        "name": "苏州测试博物馆",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 60,
+        "location": {
+          "longitude": 121.51,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-4-museum",
+        "ticket_price": 10,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "indoor": true,
+        "longitude": 121.51,
+        "latitude": 31.23
+      }
+    ],
+    "synthetic_direct_response": {
+      "days": [
+        {
+          "day_index": 0,
+          "date": "2026-10-13",
+          "attractions": [
+            {
+              "name": "苏州测试公园0",
+              "address": "固定测试地址",
+              "description": "合成测试数据，不代表真实景点信息",
+              "visit_duration": 180,
+              "location": {
+                "longitude": 121.51,
+                "latitude": 31.23
+              },
+              "poi_id": "fixture-4-0",
+              "ticket_price": 20,
+              "price_status": "estimated",
+              "open_hours": "08:00-22:00"
+            },
+            {
+              "name": "苏州测试公园1",
+              "address": "固定测试地址",
+              "description": "合成测试数据，不代表真实景点信息",
+              "visit_duration": 180,
+              "location": {
+                "longitude": 121.51,
+                "latitude": 31.23
+              },
+              "poi_id": "fixture-4-1",
+              "ticket_price": 20,
+              "price_status": "estimated",
+              "open_hours": "08:00-22:00"
+            },
+            {
+              "name": "苏州测试公园2",
+              "address": "固定测试地址",
+              "description": "合成测试数据，不代表真实景点信息",
+              "visit_duration": 180,
+              "location": {
+                "longitude": 121.51,
+                "latitude": 31.23
+              },
+              "poi_id": "fixture-4-2",
+              "ticket_price": 20,
+              "price_status": "estimated",
+              "open_hours": "08:00-22:00"
+            }
+          ],
+          "day_start_time": "08:00",
+          "timeline_order": [
+            {
+              "kind": "attraction",
+              "ref_name": "苏州测试公园0"
+            },
+            {
+              "kind": "attraction",
+              "ref_name": "苏州测试公园1"
+            },
+            {
+              "kind": "attraction",
+              "ref_name": "苏州测试公园2"
+            }
+          ],
+          "route_segments": [],
+          "is_assembled": true
+        }
+      ]
+    },
+    "synthetic_repair_ids": [
+      "fixture-4-museum"
+    ],
+    "expected_baseline_codes": [
+      "day_overloaded"
+    ],
+    "fault": null
+  },
+  {
+    "id": "budget-01",
+    "scenario": "上海/budget/1",
+    "request": {
+      "city": "上海",
+      "start_date": "2026-10-13",
+      "end_date": "2026-10-13",
+      "travel_days": 1,
+      "transportation": "公共交通",
+      "accommodation": "经济型酒店",
+      "budget": 100,
+      "max_day_minutes": 600,
+      "must_visit": []
+    },
+    "frozen_candidates": [
+      {
+        "name": "上海测试公园",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 90,
+        "location": {
+          "longitude": 121.47,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-0-park",
+        "ticket_price": 300,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "longitude": 121.47,
+        "latitude": 31.23
+      },
+      {
+        "name": "上海测试博物馆",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 60,
+        "location": {
+          "longitude": 121.47,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-0-museum",
+        "ticket_price": 10,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "indoor": true,
+        "longitude": 121.47,
+        "latitude": 31.23
+      }
+    ],
+    "synthetic_direct_response": {
+      "days": [
+        {
+          "day_index": 0,
+          "date": "2026-10-13",
+          "attractions": [
+            {
+              "name": "上海测试公园",
+              "address": "固定测试地址",
+              "description": "合成测试数据，不代表真实景点信息",
+              "visit_duration": 90,
+              "location": {
+                "longitude": 121.47,
+                "latitude": 31.23
+              },
+              "poi_id": "fixture-0-park",
+              "ticket_price": 300,
+              "price_status": "estimated",
+              "open_hours": "08:00-22:00"
+            }
+          ],
+          "day_start_time": "08:00",
+          "timeline_order": [
+            {
+              "kind": "attraction",
+              "ref_name": "上海测试公园"
+            }
+          ],
+          "route_segments": [],
+          "is_assembled": true
+        }
+      ]
+    },
+    "synthetic_repair_ids": [
+      "fixture-0-museum"
+    ],
+    "expected_baseline_codes": [
+      "budget_exceeded"
+    ],
+    "fault": null
+  },
+  {
+    "id": "budget-02",
+    "scenario": "北京/budget/2",
+    "request": {
+      "city": "北京",
+      "start_date": "2026-10-13",
+      "end_date": "2026-10-13",
+      "travel_days": 1,
+      "transportation": "公共交通",
+      "accommodation": "经济型酒店",
+      "budget": 110,
+      "max_day_minutes": 600,
+      "must_visit": []
+    },
+    "frozen_candidates": [
+      {
+        "name": "北京测试公园",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 90,
+        "location": {
+          "longitude": 121.48,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-1-park",
+        "ticket_price": 400,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "longitude": 121.48,
+        "latitude": 31.23
+      },
+      {
+        "name": "北京测试博物馆",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 60,
+        "location": {
+          "longitude": 121.48,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-1-museum",
+        "ticket_price": 10,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "indoor": true,
+        "longitude": 121.48,
+        "latitude": 31.23
+      }
+    ],
+    "synthetic_direct_response": {
+      "days": [
+        {
+          "day_index": 0,
+          "date": "2026-10-13",
+          "attractions": [
+            {
+              "name": "北京测试公园",
+              "address": "固定测试地址",
+              "description": "合成测试数据，不代表真实景点信息",
+              "visit_duration": 90,
+              "location": {
+                "longitude": 121.48,
+                "latitude": 31.23
+              },
+              "poi_id": "fixture-1-park",
+              "ticket_price": 400,
+              "price_status": "estimated",
+              "open_hours": "08:00-22:00"
+            }
+          ],
+          "day_start_time": "08:00",
+          "timeline_order": [
+            {
+              "kind": "attraction",
+              "ref_name": "北京测试公园"
+            }
+          ],
+          "route_segments": [],
+          "is_assembled": true
+        }
+      ]
+    },
+    "synthetic_repair_ids": [
+      "fixture-1-museum"
+    ],
+    "expected_baseline_codes": [
+      "budget_exceeded"
+    ],
+    "fault": null
+  },
+  {
+    "id": "budget-03",
+    "scenario": "成都/budget/3",
+    "request": {
+      "city": "成都",
+      "start_date": "2026-10-13",
+      "end_date": "2026-10-13",
+      "travel_days": 1,
+      "transportation": "公共交通",
+      "accommodation": "经济型酒店",
+      "budget": 120,
+      "max_day_minutes": 600,
+      "must_visit": []
+    },
+    "frozen_candidates": [
+      {
+        "name": "成都测试公园",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 90,
+        "location": {
+          "longitude": 121.49,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-2-park",
+        "ticket_price": 500,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "longitude": 121.49,
+        "latitude": 31.23
+      },
+      {
+        "name": "成都测试博物馆",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 60,
+        "location": {
+          "longitude": 121.49,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-2-museum",
+        "ticket_price": 10,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "indoor": true,
+        "longitude": 121.49,
+        "latitude": 31.23
+      }
+    ],
+    "synthetic_direct_response": {
+      "days": [
+        {
+          "day_index": 0,
+          "date": "2026-10-13",
+          "attractions": [
+            {
+              "name": "成都测试公园",
+              "address": "固定测试地址",
+              "description": "合成测试数据，不代表真实景点信息",
+              "visit_duration": 90,
+              "location": {
+                "longitude": 121.49,
+                "latitude": 31.23
+              },
+              "poi_id": "fixture-2-park",
+              "ticket_price": 500,
+              "price_status": "estimated",
+              "open_hours": "08:00-22:00"
+            }
+          ],
+          "day_start_time": "08:00",
+          "timeline_order": [
+            {
+              "kind": "attraction",
+              "ref_name": "成都测试公园"
+            }
+          ],
+          "route_segments": [],
+          "is_assembled": true
+        }
+      ]
+    },
+    "synthetic_repair_ids": [
+      "fixture-2-museum"
+    ],
+    "expected_baseline_codes": [
+      "budget_exceeded"
+    ],
+    "fault": null
+  },
+  {
+    "id": "budget-04",
+    "scenario": "杭州/budget/4",
+    "request": {
+      "city": "杭州",
+      "start_date": "2026-10-13",
+      "end_date": "2026-10-13",
+      "travel_days": 1,
+      "transportation": "公共交通",
+      "accommodation": "经济型酒店",
+      "budget": 130,
+      "max_day_minutes": 600,
+      "must_visit": []
+    },
+    "frozen_candidates": [
+      {
+        "name": "杭州测试公园",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 90,
+        "location": {
+          "longitude": 121.5,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-3-park",
+        "ticket_price": 600,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "longitude": 121.5,
+        "latitude": 31.23
+      },
+      {
+        "name": "杭州测试博物馆",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 60,
+        "location": {
+          "longitude": 121.5,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-3-museum",
+        "ticket_price": 10,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "indoor": true,
+        "longitude": 121.5,
+        "latitude": 31.23
+      }
+    ],
+    "synthetic_direct_response": {
+      "days": [
+        {
+          "day_index": 0,
+          "date": "2026-10-13",
+          "attractions": [
+            {
+              "name": "杭州测试公园",
+              "address": "固定测试地址",
+              "description": "合成测试数据，不代表真实景点信息",
+              "visit_duration": 90,
+              "location": {
+                "longitude": 121.5,
+                "latitude": 31.23
+              },
+              "poi_id": "fixture-3-park",
+              "ticket_price": 600,
+              "price_status": "estimated",
+              "open_hours": "08:00-22:00"
+            }
+          ],
+          "day_start_time": "08:00",
+          "timeline_order": [
+            {
+              "kind": "attraction",
+              "ref_name": "杭州测试公园"
+            }
+          ],
+          "route_segments": [],
+          "is_assembled": true
+        }
+      ]
+    },
+    "synthetic_repair_ids": [
+      "fixture-3-museum"
+    ],
+    "expected_baseline_codes": [
+      "budget_exceeded"
+    ],
+    "fault": null
+  },
+  {
+    "id": "budget-05",
+    "scenario": "苏州/budget/5",
+    "request": {
+      "city": "苏州",
+      "start_date": "2026-10-13",
+      "end_date": "2026-10-13",
+      "travel_days": 1,
+      "transportation": "公共交通",
+      "accommodation": "经济型酒店",
+      "budget": 140,
+      "max_day_minutes": 600,
+      "must_visit": []
+    },
+    "frozen_candidates": [
+      {
+        "name": "苏州测试公园",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 90,
+        "location": {
+          "longitude": 121.51,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-4-park",
+        "ticket_price": 700,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "longitude": 121.51,
+        "latitude": 31.23
+      },
+      {
+        "name": "苏州测试博物馆",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 60,
+        "location": {
+          "longitude": 121.51,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-4-museum",
+        "ticket_price": 10,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "indoor": true,
+        "longitude": 121.51,
+        "latitude": 31.23
+      }
+    ],
+    "synthetic_direct_response": {
+      "days": [
+        {
+          "day_index": 0,
+          "date": "2026-10-13",
+          "attractions": [
+            {
+              "name": "苏州测试公园",
+              "address": "固定测试地址",
+              "description": "合成测试数据，不代表真实景点信息",
+              "visit_duration": 90,
+              "location": {
+                "longitude": 121.51,
+                "latitude": 31.23
+              },
+              "poi_id": "fixture-4-park",
+              "ticket_price": 700,
+              "price_status": "estimated",
+              "open_hours": "08:00-22:00"
+            }
+          ],
+          "day_start_time": "08:00",
+          "timeline_order": [
+            {
+              "kind": "attraction",
+              "ref_name": "苏州测试公园"
+            }
+          ],
+          "route_segments": [],
+          "is_assembled": true
+        }
+      ]
+    },
+    "synthetic_repair_ids": [
+      "fixture-4-museum"
+    ],
+    "expected_baseline_codes": [
+      "budget_exceeded"
+    ],
+    "fault": null
+  },
+  {
+    "id": "failure-01",
+    "scenario": "上海/failure/1",
+    "request": {
+      "city": "上海",
+      "start_date": "2026-10-13",
+      "end_date": "2026-10-13",
+      "travel_days": 1,
+      "transportation": "公共交通",
+      "accommodation": "经济型酒店",
+      "budget": 1000,
+      "max_day_minutes": 600,
+      "must_visit": []
+    },
+    "frozen_candidates": [
+      {
+        "name": "上海测试公园",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 90,
+        "location": {
+          "longitude": 121.47,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-0-park",
+        "ticket_price": 0,
+        "price_status": "unknown",
+        "open_hours": null,
+        "longitude": 121.47,
+        "latitude": 31.23
+      },
+      {
+        "name": "上海测试博物馆",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 60,
+        "location": {
+          "longitude": 121.47,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-0-museum",
+        "ticket_price": 10,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "indoor": true,
+        "longitude": 121.47,
+        "latitude": 31.23
+      }
+    ],
+    "synthetic_direct_response": {
+      "days": [
+        {
+          "day_index": 0,
+          "date": "2026-10-13",
+          "attractions": [
+            {
+              "name": "上海测试公园",
+              "address": "固定测试地址",
+              "description": "合成测试数据，不代表真实景点信息",
+              "visit_duration": 90,
+              "location": {
+                "longitude": 121.47,
+                "latitude": 31.23
+              },
+              "poi_id": "fixture-0-park",
+              "ticket_price": 0,
+              "price_status": "unknown",
+              "open_hours": null
+            }
+          ],
+          "day_start_time": "08:00",
+          "timeline_order": [
+            {
+              "kind": "attraction",
+              "ref_name": "上海测试公园"
+            }
+          ],
+          "route_segments": [],
+          "is_assembled": true
+        }
+      ]
+    },
+    "synthetic_repair_ids": [
+      "fixture-0-museum"
+    ],
+    "expected_baseline_codes": [
+      "unknown_price",
+      "unknown_open_hours"
+    ],
+    "fault": null
+  },
+  {
+    "id": "failure-02",
+    "scenario": "北京/failure/2",
+    "request": {
+      "city": "北京",
+      "start_date": "2026-10-13",
+      "end_date": "2026-10-13",
+      "travel_days": 1,
+      "transportation": "公共交通",
+      "accommodation": "经济型酒店",
+      "budget": 1000,
+      "max_day_minutes": 600,
+      "must_visit": []
+    },
+    "frozen_candidates": [
+      {
+        "name": "北京测试公园",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 90,
+        "location": null,
+        "poi_id": "",
+        "ticket_price": 20,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00"
+      },
+      {
+        "name": "北京测试博物馆",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 60,
+        "location": {
+          "longitude": 121.48,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-1-museum",
+        "ticket_price": 10,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "indoor": true,
+        "longitude": 121.48,
+        "latitude": 31.23
+      }
+    ],
+    "synthetic_direct_response": {
+      "days": [
+        {
+          "day_index": 0,
+          "date": "2026-10-13",
+          "attractions": [
+            {
+              "name": "北京测试公园",
+              "address": "固定测试地址",
+              "description": "合成测试数据，不代表真实景点信息",
+              "visit_duration": 90,
+              "location": null,
+              "poi_id": "",
+              "ticket_price": 20,
+              "price_status": "estimated",
+              "open_hours": "08:00-22:00"
+            }
+          ],
+          "day_start_time": "08:00",
+          "timeline_order": [
+            {
+              "kind": "attraction",
+              "ref_name": "北京测试公园"
+            }
+          ],
+          "route_segments": [],
+          "is_assembled": true
+        }
+      ]
+    },
+    "synthetic_repair_ids": [
+      "fixture-1-museum"
+    ],
+    "expected_baseline_codes": [
+      "unverified_poi"
+    ],
+    "fault": null
+  },
+  {
+    "id": "failure-03",
+    "scenario": "成都/failure/3",
+    "request": {
+      "city": "成都",
+      "start_date": "2026-10-13",
+      "end_date": "2026-10-13",
+      "travel_days": 1,
+      "transportation": "公共交通",
+      "accommodation": "经济型酒店",
+      "budget": 100,
+      "max_day_minutes": 600,
+      "must_visit": []
+    },
+    "frozen_candidates": [
+      {
+        "name": "成都测试公园",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 90,
+        "location": {
+          "longitude": 121.49,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-2-park",
+        "ticket_price": 500,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "longitude": 121.49,
+        "latitude": 31.23
+      },
+      {
+        "name": "成都测试博物馆",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 60,
+        "location": {
+          "longitude": 121.49,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-2-museum",
+        "ticket_price": 10,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "indoor": true,
+        "longitude": 121.49,
+        "latitude": 31.23
+      }
+    ],
+    "synthetic_direct_response": {
+      "days": [
+        {
+          "day_index": 0,
+          "date": "2026-10-13",
+          "attractions": [
+            {
+              "name": "成都测试公园",
+              "address": "固定测试地址",
+              "description": "合成测试数据，不代表真实景点信息",
+              "visit_duration": 90,
+              "location": {
+                "longitude": 121.49,
+                "latitude": 31.23
+              },
+              "poi_id": "fixture-2-park",
+              "ticket_price": 500,
+              "price_status": "estimated",
+              "open_hours": "08:00-22:00"
+            }
+          ],
+          "day_start_time": "08:00",
+          "timeline_order": [
+            {
+              "kind": "attraction",
+              "ref_name": "成都测试公园"
+            }
+          ],
+          "route_segments": [],
+          "is_assembled": true
+        }
+      ]
+    },
+    "synthetic_repair_ids": [
+      "fixture-2-museum"
+    ],
+    "expected_baseline_codes": [
+      "budget_exceeded"
+    ],
+    "fault": "retrieval_timeout"
+  },
+  {
+    "id": "failure-04",
+    "scenario": "杭州/failure/4",
+    "request": {
+      "city": "杭州",
+      "start_date": "2026-10-13",
+      "end_date": "2026-10-13",
+      "travel_days": 1,
+      "transportation": "公共交通",
+      "accommodation": "经济型酒店",
+      "budget": 100,
+      "max_day_minutes": 600,
+      "must_visit": []
+    },
+    "frozen_candidates": [
+      {
+        "name": "杭州测试公园",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 90,
+        "location": {
+          "longitude": 121.5,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-3-park",
+        "ticket_price": 500,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "longitude": 121.5,
+        "latitude": 31.23
+      },
+      {
+        "name": "杭州测试博物馆",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 60,
+        "location": {
+          "longitude": 121.5,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-3-museum",
+        "ticket_price": 10,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "indoor": true,
+        "longitude": 121.5,
+        "latitude": 31.23
+      }
+    ],
+    "synthetic_direct_response": {
+      "days": [
+        {
+          "day_index": 0,
+          "date": "2026-10-13",
+          "attractions": [
+            {
+              "name": "杭州测试公园",
+              "address": "固定测试地址",
+              "description": "合成测试数据，不代表真实景点信息",
+              "visit_duration": 90,
+              "location": {
+                "longitude": 121.5,
+                "latitude": 31.23
+              },
+              "poi_id": "fixture-3-park",
+              "ticket_price": 500,
+              "price_status": "estimated",
+              "open_hours": "08:00-22:00"
+            }
+          ],
+          "day_start_time": "08:00",
+          "timeline_order": [
+            {
+              "kind": "attraction",
+              "ref_name": "杭州测试公园"
+            }
+          ],
+          "route_segments": [],
+          "is_assembled": true
+        }
+      ]
+    },
+    "synthetic_repair_ids": [
+      "model-invented-id"
+    ],
+    "expected_baseline_codes": [
+      "budget_exceeded"
+    ],
+    "fault": null
+  },
+  {
+    "id": "failure-05",
+    "scenario": "苏州/failure/5",
+    "request": {
+      "city": "苏州",
+      "start_date": "2026-10-13",
+      "end_date": "2026-10-13",
+      "travel_days": 1,
+      "transportation": "公共交通",
+      "accommodation": "经济型酒店",
+      "budget": 100,
+      "max_day_minutes": 600,
+      "must_visit": [
+        "候选池里不存在的必去景点"
+      ]
+    },
+    "frozen_candidates": [
+      {
+        "name": "苏州测试公园",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 90,
+        "location": {
+          "longitude": 121.51,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-4-park",
+        "ticket_price": 500,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "longitude": 121.51,
+        "latitude": 31.23
+      },
+      {
+        "name": "苏州测试博物馆",
+        "address": "固定测试地址",
+        "description": "合成测试数据，不代表真实景点信息",
+        "visit_duration": 60,
+        "location": {
+          "longitude": 121.51,
+          "latitude": 31.23
+        },
+        "poi_id": "fixture-4-museum",
+        "ticket_price": 10,
+        "price_status": "estimated",
+        "open_hours": "08:00-22:00",
+        "indoor": true,
+        "longitude": 121.51,
+        "latitude": 31.23
+      }
+    ],
+    "synthetic_direct_response": {
+      "days": [
+        {
+          "day_index": 0,
+          "date": "2026-10-13",
+          "attractions": [
+            {
+              "name": "苏州测试公园",
+              "address": "固定测试地址",
+              "description": "合成测试数据，不代表真实景点信息",
+              "visit_duration": 90,
+              "location": {
+                "longitude": 121.51,
+                "latitude": 31.23
+              },
+              "poi_id": "fixture-4-park",
+              "ticket_price": 500,
+              "price_status": "estimated",
+              "open_hours": "08:00-22:00"
+            }
+          ],
+          "day_start_time": "08:00",
+          "timeline_order": [
+            {
+              "kind": "attraction",
+              "ref_name": "苏州测试公园"
+            }
+          ],
+          "route_segments": [],
+          "is_assembled": true
+        }
+      ]
+    },
+    "synthetic_repair_ids": [
+      "fixture-4-museum"
+    ],
+    "expected_baseline_codes": [
+      "budget_exceeded",
+      "missing_must_visit"
+    ],
+    "fault": null
+  }
+]

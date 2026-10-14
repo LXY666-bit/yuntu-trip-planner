@@ -4,6 +4,7 @@ from enum import Enum
 from typing import Dict, List, Optional, Union, Any
 from pydantic import BaseModel, Field, field_validator, model_validator
 from datetime import date
+from .reservation import ReservationFields
 
 
 # ============ 请求模型 ============
@@ -17,7 +18,7 @@ class CompanionInfo(BaseModel):
 class CityStay(BaseModel):
     """单城市停留配置"""
     city: str = Field(..., description="城市名称")
-    days: int = Field(..., description="在该城市停留天数", ge=1, le=15)
+    days: int = Field(..., description="在该城市停留天数", ge=1, le=30)
 
 
 class TripRequest(BaseModel):
@@ -32,13 +33,29 @@ class TripRequest(BaseModel):
     preferences: List[str] = Field(default=[], description="旅行偏好标签", example=["历史文化", "美食"])
     food_preference: str = Field(default="本地特色", description="美食偏好", example="本地特色")
     free_text_input: Optional[str] = Field(default="", description="额外要求", example="希望多安排一些博物馆")
-    budget: Optional[int] = Field(default=None, description="总预算上限(元)，为空表示不限预算", example=5000)
+    budget: Optional[int] = Field(default=None, ge=0, description="总预算上限(元)，为空表示不限预算", example=5000)
     companions: Optional[CompanionInfo] = Field(default=None, description="出行同伴信息")
     language: Optional[str] = Field(default="zh", description="输出语言(zh/en/ja)", example="en")
     default_day_start_time: str = Field(
         default="08:00",
         description="每日行程默认开始时间 HH:mm，草稿中的单日设置可覆盖",
     )
+    must_visit: List[str] = Field(default_factory=list, max_length=30)
+    max_day_minutes: int = Field(default=600, ge=60, le=960)
+    day_end_time: str = Field(default="22:00", pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
+
+    @field_validator("start_date", "end_date")
+    @classmethod
+    def valid_date(cls, value):
+        return date.fromisoformat(value).isoformat()
+
+    @field_validator("default_day_start_time")
+    @classmethod
+    def valid_time(cls, value):
+        import re
+        if not re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d", value):
+            raise ValueError("开始时间须为 HH:mm")
+        return value
 
     @field_validator("travel_days", mode="before")
     @classmethod
@@ -120,7 +137,7 @@ class Location(BaseModel):
     latitude: float = Field(..., description="纬度")
 
 
-class Attraction(BaseModel):
+class Attraction(ReservationFields):
     """景点信息"""
     name: str = Field(..., description="景点名称")
     address: str = Field(..., description="地址")
@@ -133,10 +150,12 @@ class Attraction(BaseModel):
     poi_id: Optional[str] = Field(default="", description="POI ID")
     image_url: Optional[str] = Field(default=None, description="图片URL")
     ticket_price: int = Field(default=0, description="门票价格(元)")
-    reservation_required: Optional[bool] = Field(default=False, description="是否需要提前预约")
-    reservation_tips: Optional[str] = Field(default="", description="预约提示信息")
     open_hours: Optional[str] = Field(default=None, description="开放时间")
     tel: Optional[str] = Field(default=None, description="联系电话")
+    price_status: str = Field(default="unknown", pattern="^(verified|estimated|unknown)$")
+    source: Optional[str] = None
+    fetched_at: Optional[str] = None
+    indoor: Optional[bool] = None
 
 
 class DiningCategory(str, Enum):
@@ -289,6 +308,9 @@ class Budget(BaseModel):
     total: int = Field(default=0, description="总费用")
     budget_limit: Optional[int] = Field(default=None, description="用户预算上限(元)")
     is_within_budget: Optional[bool] = Field(default=None, description="是否在预算范围内")
+    pricing_status: str = "estimated"
+    unknown_items: List[str] = Field(default_factory=list)
+    notes: List[str] = Field(default_factory=list)
 
 
 class DaySkeleton(BaseModel):
@@ -390,7 +412,7 @@ class WeatherResponse(BaseModel):
     data: List[WeatherInfo] = Field(default=[], description="天气信息")
 
 
-class DiscoveredAttraction(BaseModel):
+class DiscoveredAttraction(ReservationFields):
     """景点发现结果 — 用于发现阶段展示给用户选择"""
     name: str = Field(..., description="景点名称")
     description: str = Field(default="", description="景点简介")
@@ -472,6 +494,7 @@ class DayDetail(BaseModel):
     """详细阶段产物（每日装配后的完整时间轴）"""
     day_index: int
     date: str
+    city: str = ""
     description: str = Field(default="", description="LLM 写的当日叙述")
     attractions: List[Attraction] = Field(default_factory=list)
     hotel: Optional[Hotel] = Field(default=None)

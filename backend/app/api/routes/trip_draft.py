@@ -20,6 +20,9 @@ from ...agents.langgraph_agent.finalize.pipeline import finalize_draft
 from ...services import trip_draft_service
 from ...services.llm_service import get_llm
 from ...models.schemas import PlanFromSelectionsRequest
+from .sse_utils import make_sse_response
+from ...services.plan_validation import city_for_day, priced_days
+from ...models.reservation import reservation_fields
 
 router = APIRouter(prefix="/trip/draft", tags=["trip_draft"])
 
@@ -61,19 +64,7 @@ async def create_draft_from_selections(req: PlanFromSelectionsRequest):
             )
             yield f"data: {error}\n\n"
 
-    async def heartbeat_wrapper():
-        async for chunk in event_generator():
-            yield chunk
-        while True:
-            await asyncio.sleep(15)
-            yield ": heartbeat\n\n"
-
-    return StreamingResponse(
-        heartbeat_wrapper(),
-        media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache", "Connection": "keep-alive",
-                 "X-Accel-Buffering": "no"},
-    )
+    return make_sse_response(event_generator)
 
 
 from ...models.schemas import (
@@ -99,10 +90,11 @@ def _load_payload(record) -> TripDraftPayload:
         cluster = clusters_data[idx] if idx < len(clusters_data) else []
         attractions = []
         for c in cluster:
-            loc = None
-            if c.get("longitude") and c.get("latitude"):
+            loc = c.get("location")
+            if c.get("longitude") is not None and c.get("latitude") is not None:
                 loc = Location(longitude=c["longitude"], latitude=c["latitude"])
             attractions.append(Attraction(
+                **reservation_fields(c),
                 name=c.get("name", ""),
                 address=c.get("address", ""),
                 visit_duration=c.get("visit_minutes") or c.get("visit_duration") or 120,
@@ -112,6 +104,10 @@ def _load_payload(record) -> TripDraftPayload:
                 poi_id=c.get("poi_id") or "",
                 image_url=c.get("image_url"),
                 ticket_price=_parse_ticket_price(c.get("ticket_price")),
+                price_status=c.get("price_status") or ("estimated" if re.search(r"\d", str(c.get("ticket_price"))) or c.get("ticket_price") == "免费" else "unknown"),
+                source=c.get("source") or ("amap" if c.get("poi_id") else None),
+                fetched_at=c.get("fetched_at"),
+                indoor=c.get("indoor"),
                 open_hours=c.get("open_hours"),
                 tel=c.get("tel"),
                 location=loc,
@@ -215,15 +211,16 @@ async def assemble_day(
     override_dict = overrides.model_dump(exclude_none=True)
     detail = rule_assemble_day_timeline(ctx, overrides=override_dict or None)
     detail.route_segments = await compute_day_route(
-        detail, request.city, request.transportation
+        detail, city_for_day(request, day_index), request.transportation
     )
-    detail.day_budget = compute_day_budget(detail)
+    detail.city = city_for_day(request, day_index)
+    detail.day_budget = priced_days([detail], request)[0].day_budget
     detail.description = await write_day_narrative_llm(
         detail, weather=ctx.weather,
         free_text_input=request.free_text_input or "",
         city=request.city,
     )
-    await trip_draft_service.patch_day_detail(draft_id, day_index, detail)
+    await trip_draft_service.patch_day_detail(draft_id, day_index, detail, expected_day=json.loads(record.days_detail_json)[day_index])
     return DayDetailResponse(draft_id=draft_id, day_index=day_index, day_detail=detail)
 
 
@@ -238,6 +235,10 @@ async def recompute_day(draft_id: str, day_index: int, edit: DayEditRequest):
     existing_days = json.loads(record.days_detail_json)
     current = (DayDetail.model_validate(existing_days[day_index])
                if existing_days[day_index] else None)
+
+    if current:
+        ctx.attractions = current.attractions
+        ctx.hotel = current.hotel
 
     # 合并 overrides：未传字段沿用当前 day_detail
     final_order = edit.attractions_order
@@ -269,12 +270,13 @@ async def recompute_day(draft_id: str, day_index: int, edit: DayEditRequest):
     request = TripRequest.model_validate_json(record.request_json)
     detail = rule_assemble_day_timeline(ctx, overrides=overrides_dict or None)
     detail.route_segments = await compute_day_route(
-        detail, request.city, request.transportation
+        detail, city_for_day(request, day_index), request.transportation
     )
-    detail.day_budget = compute_day_budget(detail)
+    detail.city = city_for_day(request, day_index)
+    detail.day_budget = priced_days([detail], request)[0].day_budget
     # 保留当前 description（recompute 不写 LLM）
     detail.description = current.description if current else ""
-    await trip_draft_service.patch_day_detail(draft_id, day_index, detail)
+    await trip_draft_service.patch_day_detail(draft_id, day_index, detail, expected_day=json.loads(record.days_detail_json)[day_index])
     return DayDetailResponse(draft_id=draft_id, day_index=day_index, day_detail=detail)
 
 
@@ -294,7 +296,7 @@ async def rewrite_narrative(draft_id: str, day_index: int):
         free_text_input=request.free_text_input or "",
         city=request.city,
     )
-    await trip_draft_service.patch_day_detail(draft_id, day_index, detail)
+    await trip_draft_service.patch_day_detail(draft_id, day_index, detail, expected_day=json.loads(record.days_detail_json)[day_index])
     return DayDetailResponse(draft_id=draft_id, day_index=day_index, day_detail=detail)
 
 
@@ -315,6 +317,10 @@ async def ai_rearrange_day(draft_id: str, day_index: int, req: AIRearrangeReques
     _ensure_editable(record)
     ctx = _get_day_context_from_record(record, day_index)
     request = TripRequest.model_validate_json(record.request_json)
+    current_raw = json.loads(record.days_detail_json)[day_index]
+    if current_raw:
+        current = DayDetail.model_validate(current_raw)
+        ctx.attractions, ctx.hotel = current.attractions, current.hotel
 
     pool_summary = []
     for cat, items in ctx.dining_pool.model_dump().items():
@@ -355,14 +361,15 @@ async def ai_rearrange_day(draft_id: str, day_index: int, req: AIRearrangeReques
     }
     detail = rule_assemble_day_timeline(ctx, overrides=overrides)
     detail.route_segments = await compute_day_route(
-        detail, request.city, request.transportation
+        detail, city_for_day(request, day_index), request.transportation
     )
-    detail.day_budget = compute_day_budget(detail)
+    detail.city = city_for_day(request, day_index)
+    detail.day_budget = priced_days([detail], request)[0].day_budget
     # description 保留当前（用户可手动 narrative 刷新）
     existing_days = json.loads(record.days_detail_json)
     if existing_days[day_index]:
         detail.description = existing_days[day_index].get("description", "")
-    await trip_draft_service.patch_day_detail(draft_id, day_index, detail)
+    await trip_draft_service.patch_day_detail(draft_id, day_index, detail, expected_day=json.loads(record.days_detail_json)[day_index])
     return DayDetailResponse(draft_id=draft_id, day_index=day_index, day_detail=detail)
 
 
@@ -393,9 +400,4 @@ async def finalize_draft_endpoint(draft_id: str):
             err = {"type": "error", "message": f"finalize 失败: {str(e)}"}
             yield f"data: {json.dumps(err, ensure_ascii=False)}\n\n"
 
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache", "Connection": "keep-alive",
-                 "X-Accel-Buffering": "no"},
-    )
+    return make_sse_response(event_generator)

@@ -17,6 +17,12 @@ from ..logger import setup_logging, log_print, LOG_FILE
 # 新路由导入 (LangGraph + LangChain MCP)
 from .routes import trip_lg, poi_lg, map_lg, trip_history, chat, trip_draft
 from ..database import init_db
+from .routes import planning_assistant
+from .routes import reservations
+from fastapi.responses import JSONResponse
+from ..services.planning_assistant import PlanConflict, DraftNotFound
+from ..services.trip_draft_service import DraftConflict
+from ..services.run_metrics import RunMetricsMiddleware
 
 # 获取配置
 settings = get_settings()
@@ -50,6 +56,20 @@ app.include_router(map_lg.router, prefix="/api")
 app.include_router(trip_history.router, prefix="/api")
 app.include_router(chat.router, prefix="/api")
 app.include_router(trip_draft.router, prefix="/api")
+app.include_router(planning_assistant.router, prefix="/api")
+app.include_router(reservations.router, prefix="/api")
+app.add_middleware(RunMetricsMiddleware)
+
+
+@app.exception_handler(PlanConflict)
+@app.exception_handler(DraftConflict)
+async def conflict_handler(request, exc):
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+
+@app.exception_handler(DraftNotFound)
+async def not_found_handler(request, exc):
+    return JSONResponse(status_code=404, content={"detail": str(exc)})
 
 # 旧路由注册 (已弃用)
 # app.include_router(trip.router, prefix="/api")

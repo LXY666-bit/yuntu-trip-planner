@@ -315,7 +315,8 @@ def search_xhs_attractions(city: str, keywords: str, language: str = "zh") -> tu
             text = f"{title}\n{desc}"
             if len(text) > MAX_NOTE_TEXT:
                 text = text[:MAX_NOTE_TEXT] + "..."
-            return (idx, f"\n笔记{idx+1}:\n标题: {title}\n正文内容: {desc[:MAX_NOTE_TEXT]}\n")
+            source_url = f"https://www.xiaohongshu.com/explore/{note.get('id', '')}"
+            return (idx, f"\n笔记{idx+1}:\n标题: {title}\n来源: {source_url}\n正文内容: {desc[:MAX_NOTE_TEXT]}\n")
 
         with ThreadPoolExecutor(max_workers=4) as executor:
             futures = {executor.submit(_fetch_note_detail, (i, n)): i for i, n in enumerate(items)}
@@ -353,20 +354,19 @@ def search_xhs_attractions(city: str, keywords: str, language: str = "zh") -> tu
 "name_en": 景点的英文名称
 "reason": 小红书用户的真实评价/避坑指南
 "duration": 游玩时长(数字, 分钟)
-"reservation_required": 是否需要提前预约(布尔值 true/false)。请根据游记中提到的"需要预约"、"提前预约"、"抢票"、"约满"、"官方预约"等关键词判断，如果游记未提及则默认为 false
-"reservation_tips": 预约相关提示(字符串)。如果需要预约，请提取预约渠道、提前天数等具体信息；如果不需要预约则填空字符串
+"reservation": 预约信息对象，遵循下方证据提取规则。未提及不能当作不需要预约。
 
 游记杂文内容如下:
 {combined_text}
 
 JSON 返回示例:
 [
-  {{"name": "故宫博物院", "name_zh": "故宫博物院", "name_en": "The Palace Museum", "reason": "必去打卡，建议走中轴线。", "duration": 240, "reservation_required": true, "reservation_tips": "需要提前7天在故宫官网或微信小程序预约，每日限流8万人"}},
-  {{"name": "老君山金顶", "name_zh": "老君山金顶", "name_en": "Laojun Mountain Golden Summit", "reason": "网红打卡点，夜景绝美，必须坐索道上山。", "duration": 180, "reservation_required": false, "reservation_tips": ""}}
+  {{"name": "来源中的景点名", "name_zh": "来源中的景点名", "name_en": "", "reason": "来源中的评价", "duration": 120, "reservation": {{"status": "unknown"}}}}
 ]
 """
     try:
-        response = llm.invoke(extract_prompt)
+        from .reservation_extraction import RESERVATION_PROMPT, extract_reservation
+        response = llm.invoke(extract_prompt + RESERVATION_PROMPT)
         content = response.content if hasattr(response, 'content') else str(response)
 
         json_match = re.search(r'\[.*\]', content, re.DOTALL)
@@ -383,6 +383,7 @@ JSON 返回示例:
         )
 
         candidates: List[tuple] = [
+            ("原始JSON", json_str),
             ("基础清理",           _sanitize_json_str(json_str)),
             ("修复未转义引号",     _fix_unescaped_quotes(_sanitize_json_str(json_str))),
             ("截断修复",           _repair_truncated_json(_sanitize_json_str(json_str))),
@@ -423,6 +424,7 @@ JSON 返回示例:
 
         def _geocode_item(item_and_name):
             item, name = item_and_name
+            item.update(extract_reservation(item, combined_text))
             loc = _geocode_amap_raw(name, city)
             item["location"] = loc
             return item

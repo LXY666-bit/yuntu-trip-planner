@@ -11,6 +11,8 @@ export interface CityStay {
 }
 
 export interface Attraction {
+  reservation?: import('./reservation').ReservationInfo
+  reservation_booked_for?: string | null
   name: string
   address: string
   location?: Location
@@ -21,7 +23,10 @@ export interface Attraction {
   image_url?: string
   poi_id?: string
   ticket_price?: number
-  reservation_required?: boolean
+  price_status?: 'verified' | 'estimated' | 'unknown'
+  source?: string
+  fetched_at?: string
+  reservation_required?: boolean | null
   reservation_tips?: string
   open_hours?: string
   tel?: string
@@ -107,7 +112,10 @@ export interface Budget {
   total_inter_city_transport?: number
   total: number
   budget_limit?: number
-  is_within_budget?: boolean
+  is_within_budget?: boolean | null
+  pricing_status?: string
+  unknown_items?: string[]
+  notes?: string[]
 }
 
 export interface RouteSegment {
@@ -337,6 +345,9 @@ export interface UserPreference {
 }
 
 export interface DiscoveredAttraction {
+  reservation?: import('./reservation').ReservationInfo
+  reservation_required?: boolean | null
+  reservation_tips?: string
   name: string
   description: string
   address: string

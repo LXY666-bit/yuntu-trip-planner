@@ -365,6 +365,8 @@ async function applySmartAssignment(selected: DiscoveredAttraction[], days: numb
   try {
     const resp = await previewDayAssignment({
       selected_attractions: selected.map(a => ({
+        reservation: a.reservation, reservation_required: a.reservation_required,
+        reservation_tips: a.reservation_tips, open_hours: a.open_hours,
         name: a.name, description: a.description, address: a.address,
         category: a.category, rating: a.rating, ticket_price: a.ticket_price,
         image_url: a.image_url, location: a.location, poi_id: a.poi_id,
@@ -481,6 +483,11 @@ async function confirmAndPlan() {
       {
         request: formData.value,
         selected_attractions: selected.map(a => ({
+          reservation: a.reservation,
+          reservation_required: a.reservation_required,
+          reservation_tips: a.reservation_tips,
+          open_hours: a.open_hours,
+          visit_minutes: a.visit_minutes,
           name: a.name,
           description: a.description,
           address: a.address,
@@ -493,6 +500,11 @@ async function confirmAndPlan() {
         })),
         day_assignments: dayAssignments.value.map(day =>
           day.map(a => ({
+            reservation: a.reservation,
+            reservation_required: a.reservation_required,
+            reservation_tips: a.reservation_tips,
+            open_hours: a.open_hours,
+            visit_minutes: a.visit_minutes,
             name: a.name,
             description: a.description,
             address: a.address,

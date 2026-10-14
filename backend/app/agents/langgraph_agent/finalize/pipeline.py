@@ -1,4 +1,4 @@
-"""定稿流水线：草稿 → TripPlan → 全局综合 + 偏好提取 → trip_history"""
+"""定稿流水线：草稿 → 规则校验 → 全局综合 → 原子保存 trip_history。"""
 import json
 import re
 from typing import Tuple, Optional
@@ -9,9 +9,15 @@ from ....models.schemas import (
 )
 from ....services import trip_draft_service
 from ....services.trip_history_service import save_trip
+from ....database import async_session
+from ....models.db_models import TripDraft
+from sqlalchemy import update
+from datetime import datetime
+from ....services.plan_validation import city_for_day, priced_days, validate_plan
 from ..assemble.timeline import rule_assemble_day_timeline
 from ..assemble.route import compute_day_route
 from ..assemble.budget import compute_day_budget
+from ....models.reservation import reservation_fields
 
 
 async def _run_global_synthesizer(trip_plan: TripPlan, free_text: str) -> Tuple[str, str, str]:
@@ -67,6 +73,7 @@ async def _run_extract_and_save_preferences(trip_plan: TripPlan, user_id: str) -
 def _day_detail_to_day_plan(detail: DayDetail, transportation: str, accommodation: str) -> DayPlan:
     return DayPlan(
         date=detail.date,
+        city=detail.city,
         day_index=detail.day_index,
         description=detail.description,
         transportation=transportation,
@@ -93,17 +100,22 @@ def _build_day_context(
     cluster = clusters_data[day_idx] if day_idx < len(clusters_data) else []
     attractions = []
     for c in cluster:
-        loc = None
-        if c.get("longitude") and c.get("latitude"):
+        loc = c.get("location")
+        if c.get("longitude") is not None and c.get("latitude") is not None:
             loc = Location(longitude=c["longitude"], latitude=c["latitude"])
         attractions.append(Attraction(
+            **reservation_fields(c),
             name=c["name"],
             address=c.get("address") or "",
-            visit_duration=c.get("visit_minutes") or 120,
+            visit_duration=c.get("visit_minutes") or c.get("visit_duration") or 120,
             description=c.get("description") or "",
             category=c.get("category") or "景点",
             rating=c.get("rating"),
             ticket_price=_parse_ticket_price(c.get("ticket_price")),
+            price_status=c.get("price_status") or ("estimated" if re.search(r"\d", str(c.get("ticket_price"))) or c.get("ticket_price") == "免费" else "unknown"),
+            source=c.get("source") or ("amap" if c.get("poi_id") else None),
+            fetched_at=c.get("fetched_at"),
+            indoor=c.get("indoor"),
             image_url=c.get("image_url"),
             poi_id=c.get("poi_id") or "",
             open_hours=c.get("open_hours"),
@@ -156,6 +168,7 @@ async def finalize_draft(draft_id: str, *, user_id: str) -> Tuple[TripPlan, int]
     days_detail_raw = json.loads(record.days_detail_json)
 
     day_plans = []
+    validation_days = []
     total_budget = Budget()
     for idx in range(request.travel_days):
         existing = days_detail_raw[idx] if idx < len(days_detail_raw) else None
@@ -163,7 +176,7 @@ async def finalize_draft(draft_id: str, *, user_id: str) -> Tuple[TripPlan, int]
             detail = DayDetail.model_validate(existing)
             if not detail.route_segments:
                 detail.route_segments = await compute_day_route(
-                    detail, request.city, request.transportation
+                    detail, city_for_day(request, idx), request.transportation
                 )
             if detail.day_budget is None:
                 detail.day_budget = compute_day_budget(detail)
@@ -174,13 +187,17 @@ async def finalize_draft(draft_id: str, *, user_id: str) -> Tuple[TripPlan, int]
             )
             detail = rule_assemble_day_timeline(ctx, overrides=None)
             detail.route_segments = await compute_day_route(
-                detail, request.city, request.transportation
+                detail, city_for_day(request, idx), request.transportation
             )
             detail.day_budget = compute_day_budget(detail)
 
         day_plans.append(_day_detail_to_day_plan(
             detail, request.transportation, request.accommodation
         ))
+        detail.city = city_for_day(request, idx)
+        day_plans[-1].city = detail.city
+        detail.day_budget = priced_days([detail], request)[0].day_budget
+        validation_days.append(detail)
         b = detail.day_budget
         total_budget = Budget(
             total_attractions=total_budget.total_attractions + b.total_attractions,
@@ -188,6 +205,9 @@ async def finalize_draft(draft_id: str, *, user_id: str) -> Tuple[TripPlan, int]
             total_meals=total_budget.total_meals + b.total_meals,
             total_transportation=total_budget.total_transportation + b.total_transportation,
             total=total_budget.total + b.total,
+            unknown_items=total_budget.unknown_items + b.unknown_items,
+            notes=b.notes,
+            pricing_status="incomplete" if total_budget.unknown_items or b.unknown_items else "estimated",
             budget_limit=request.budget,
         )
 
@@ -195,6 +215,7 @@ async def finalize_draft(draft_id: str, *, user_id: str) -> Tuple[TripPlan, int]
 
     trip_plan = TripPlan(
         city=request.city,
+        cities=[c.city for c in request.cities],
         start_date=request.start_date,
         end_date=request.end_date,
         days=day_plans,
@@ -204,6 +225,10 @@ async def finalize_draft(draft_id: str, *, user_id: str) -> Tuple[TripPlan, int]
         companions=request.companions,
     )
 
+    report = validate_plan(request, validation_days)
+    if not report.valid:
+        raise ValueError("行程存在冲突，请先校验修复：" + "；".join(v.message for v in report.violations if v.severity == "error"))
+    trip_plan.budget.is_within_budget = (report.total_cost <= request.budget) if request.budget is not None and report.pricing_status != "incomplete" else None
     tagline, suggestions, summary = await _run_global_synthesizer(
         trip_plan, request.free_text_input or ""
     )
@@ -211,15 +236,20 @@ async def finalize_draft(draft_id: str, *, user_id: str) -> Tuple[TripPlan, int]
     trip_plan.overall_suggestions = suggestions
     trip_plan.weather_summary = summary
 
-    await _run_extract_and_save_preferences(trip_plan, user_id)
-
-    trip_record = await save_trip(trip_plan, request=request)
-    await trip_draft_service.mark_finalized(draft_id, trip_id=trip_record.id)
-    await trip_draft_service.update_synthesizer_fields(
-        draft_id,
-        trip_tagline=tagline,
-        overall_suggestions=suggestions,
-        weather_summary=summary,
-    )
+    # Claim and persist in one transaction. Concurrent finalizers cannot create two trips.
+    async with async_session() as session:
+        result = await session.execute(update(TripDraft).where(
+            TripDraft.id == draft_id, TripDraft.status != "finalized",
+            TripDraft.days_detail_json == record.days_detail_json,
+            TripDraft.request_json == record.request_json,
+        ).values(status="finalized"))
+        if result.rowcount != 1:
+            raise ValueError("草稿已变化或已 finalized，请刷新后重试")
+        trip_record = await save_trip(trip_plan, request=request, session=session)
+        await session.execute(update(TripDraft).where(TripDraft.id == draft_id).values(
+            finalized_trip_id=trip_record.id, finalized_at=datetime.utcnow(),
+            trip_tagline=tagline, overall_suggestions=suggestions, weather_summary=summary,
+        ))
+        await session.commit()
 
     return trip_plan, trip_record.id

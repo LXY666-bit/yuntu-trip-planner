@@ -9,6 +9,13 @@
         <h3>{{ i + 1 }}. {{ attraction.name }}</h3><p>{{ attraction.description }}</p>
         <p class="meta">{{ attraction.address }} · 建议游玩 {{ attraction.visit_duration }} 分钟<span v-if="attraction.ticket_price != null"> · 门票 ¥{{ attraction.ticket_price }}</span></p>
         <p v-if="attraction.open_hours">开放时间：{{ attraction.open_hours }}</p><p v-if="attraction.reservation_tips">预约提示：{{ attraction.reservation_tips }}</p>
+        <p>预约状态：{{ attraction.reservation_booked_for === day.date ? '已预约（用户确认）' : attraction.reservation?.status === 'required' || attraction.reservation_required ? '需要关注预约' : '请核实预约规则' }}</p>
+        <template v-if="attraction.reservation">
+          <p v-if="attraction.reservation.advance_days != null">攻略提及提前 {{ attraction.reservation.advance_days }} 天；{{ attraction.reservation.release_time ? `放票时间 ${attraction.reservation.release_time}` : '未提供放票时刻' }}</p>
+          <p v-if="attraction.reservation.channel">渠道：{{ attraction.reservation.channel }}</p>
+          <p v-if="attraction.reservation.evidence">原文：{{ attraction.reservation.evidence }}</p>
+          <p>来源：{{ attraction.reservation.source_url || attraction.reservation.source_title || '未提供链接' }}。未经官方核验，请确认规则与余票。</p>
+        </template>
       </div>
       <div v-if="day.meals?.length" class="notes"><h3>餐饮安排</h3><p v-for="(meal, i) in day.meals" :key="i">{{ mealNames[meal.type] || meal.type }} · {{ meal.name }}<span v-if="meal.estimated_cost != null"> · 约 ¥{{ meal.estimated_cost }}</span><br />{{ meal.address }} {{ meal.description }}</p></div>
       <div v-if="day.hotel" class="notes"><h3>住宿 · {{ day.hotel.name }}</h3><p>{{ day.hotel.address }} · {{ day.hotel.price_range }}</p></div>

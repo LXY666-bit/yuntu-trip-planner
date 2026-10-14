@@ -6,6 +6,9 @@
         <span class="card-title">预算明细</span>
       </div>
       <div class="budget-body">
+        <p>{{ budget.pricing_status === 'incomplete' ? '以下为已知费用小计，尚有费用未核实。' : '以下为旅行费用估算，并非实时成交报价。' }}</p>
+        <p v-for="note in budget.notes || []" :key="note">{{ note }}</p>
+        <p v-if="budget.unknown_items?.length">费用待核实：{{ budget.unknown_items.join('、') }}</p>
         <div class="budget-grid">
           <div class="budget-item">
             <div class="budget-label">景点门票</div>
@@ -24,22 +27,22 @@
             <div class="budget-value">¥{{ budget.total_transportation }}</div>
           </div>
         </div>
-        <div class="budget-total" :class="{ 'over-budget': budget.budget_limit && !budget.is_within_budget }">
+        <div class="budget-total" :class="{ 'over-budget': budget.budget_limit != null && budget.total > budget.budget_limit }">
           <span class="total-label">预估总费用</span>
           <span class="total-value">¥{{ budget.total }}</span>
         </div>
-        <div v-if="budget.budget_limit" class="budget-limit-info">
+        <div v-if="budget.budget_limit != null" class="budget-limit-info">
           <div class="budget-limit-bar">
             <div
               class="budget-limit-fill"
-              :style="{ width: Math.min((budget.total / budget.budget_limit) * 100, 100) + '%' }"
+              :style="{ width: Math.min((budget.total / Math.max(budget.budget_limit, 1)) * 100, 100) + '%' }"
               :class="{ 'over': budget.total > budget.budget_limit }"
             ></div>
           </div>
           <div class="budget-limit-text">
             <span>预算上限: ¥{{ budget.budget_limit }}</span>
-            <span :class="budget.is_within_budget ? 'within-budget' : 'over-budget-text'">
-              {{ budget.is_within_budget ? '✅ 在预算范围内' : '⚠️ 超出预算 ¥' + (budget.total - budget.budget_limit) }}
+            <span :class="budget.total > budget.budget_limit ? 'over-budget-text' : ''">
+              {{ budget.total > budget.budget_limit ? '⚠️ 已超预算 ¥' + (budget.total - budget.budget_limit) : budget.pricing_status === 'incomplete' ? '部分费用未知，暂不能确认是否符合预算' : '当前估算在预算范围内' }}
             </span>
           </div>
         </div>

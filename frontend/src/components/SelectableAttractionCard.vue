@@ -33,6 +33,7 @@
           <span v-if="attraction.address" class="address">{{ attraction.address }}</span>
         </div>
         <p v-if="attraction.description" class="card-desc">{{ attraction.description }}</p>
+        <ReservationNotice :attraction="attraction" />
       </div>
     </div>
   </div>
@@ -41,6 +42,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import type { DiscoveredAttraction } from '@/types'
+import ReservationNotice from './ReservationNotice.vue'
 import { formatMinutes } from '@/composables/useFormat'
 
 const props = defineProps<{

@@ -2,21 +2,21 @@
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Literal
 from ...services.chat_service import chat_with_trip_context
 
 router = APIRouter(prefix="/chat", tags=["AI问答"])
 
 
 class ChatMessage(BaseModel):
-    role: str = Field(..., description="角色: user / assistant")
-    content: str = Field(..., description="消息内容")
+    role: Literal["user", "assistant"]
+    content: str = Field(..., max_length=6000, description="消息内容")
 
 
 class TripChatRequest(BaseModel):
-    message: str = Field(..., description="用户提问内容")
+    message: str = Field(..., min_length=1, max_length=1500, description="用户提问内容")
     trip_plan: dict = Field(..., description="当前旅行计划(JSON对象)")
-    history: Optional[List[ChatMessage]] = Field(default=[], description="历史对话记录")
+    history: Optional[List[ChatMessage]] = Field(default=[], max_length=20, description="历史对话记录")
 
 
 class TripChatResponse(BaseModel):

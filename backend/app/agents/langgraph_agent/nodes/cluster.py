@@ -22,6 +22,7 @@ from ..nodes.search import _extract_must_visit_attractions, analyze_free_text
 from ....services.attractions_cache_service import get_attractions_cache_service
 from ....services.langchain_amap_tools import get_langchain_amap_service
 from ....services.llm_service import get_llm
+from ....models.reservation import reservation_fields
 
 
 async def cluster_attractions_node(state: TripPlannerState) -> Dict[str, Any]:
@@ -498,6 +499,7 @@ def _selection_to_cluster_dict(attr: dict) -> dict:
     """
     loc = attr.get("location") or {}
     return {
+        **reservation_fields(attr),
         "name": attr.get("name", ""),
         "longitude": loc.get("longitude", 0),
         "latitude": loc.get("latitude", 0),

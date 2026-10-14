@@ -31,6 +31,13 @@ def _extract_json_from_llm_response(content: str) -> str:
     依次尝试: ```json ... ```, ``` ... ```, 裸 {...} 或 [...]。
     抛出 ValueError 如果未找到 JSON 结构。
     """
+    # Parse complete JSON before looking for inner objects (arrays may contain objects).
+    try:
+        parsed = json.loads(content.strip())
+        if isinstance(parsed, (dict, list)):
+            return content.strip()
+    except (ValueError, TypeError):
+        pass
     if "```json" in content:
         start = content.find("```json") + 7
         end = content.find("```", start)
@@ -43,6 +50,15 @@ def _extract_json_from_llm_response(content: str) -> str:
         if end != -1 and end > start:
             return content[start:end].strip()
         return content[start:].strip()
+    # Prefer the first successfully decoded outer value, including prose-wrapped arrays.
+    decoder = json.JSONDecoder()
+    for match in re.finditer(r'[\[{]', content):
+        try:
+            parsed, end = decoder.raw_decode(content[match.start():])
+            if isinstance(parsed, (dict, list)):
+                return content[match.start():match.start() + end]
+        except ValueError:
+            continue
     if "{" in content:
         start = content.find("{")
         end = content.rfind("}") + 1
@@ -169,8 +185,8 @@ def _sanitize_json_str(json_str: str) -> str:
     json_str = re.sub(r'^```(?:json)?\s*', '', json_str.strip())
     json_str = re.sub(r'```\s*$', '', json_str.strip())
     # 2. 移除 JS 风格注释 // ... 和 /* ... */
-    json_str = re.sub(r'//[^\n]*', '', json_str)
-    json_str = re.sub(r'/\*.*?\*/', '', json_str, flags=re.DOTALL)
+    json_str = re.sub(r'"(?:\\.|[^"\\])*"|//[^\n]*|/\*.*?\*/',
+                      lambda m: m.group() if m.group().startswith('"') else '', json_str, flags=re.DOTALL)
     # 3. 移除 JSON 值中的控制字符
     json_str = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', json_str)
     # 4. 修复尾部逗号: },] 或 },}

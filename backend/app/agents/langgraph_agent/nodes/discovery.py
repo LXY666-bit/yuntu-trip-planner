@@ -12,6 +12,8 @@ from ..state import DiscoveryState
 from ..utils.parsing import _extract_poi_names
 from ....services.langchain_amap_tools import get_langchain_amap_service
 from ....services.llm_service import get_llm
+from ....services.reservation_extraction import RESERVATION_PROMPT, extract_reservation
+from ....models.reservation import reservation_fields
 
 
 EXTRACT_ATTRACTIONS_DISCOVERY_PROMPT = """你是景点筛选专家。你的任务是从旅游攻略搜索结果中，提取搜索结果文本中明确提到的景点名称。
@@ -94,7 +96,7 @@ async def extract_attractions_expanded_node(state: DiscoveryState) -> Dict[str, 
         preferences = request.preferences or []
         pref_hint = f"\n用户偏好: {', '.join(preferences)}" if preferences else "\n用户无特殊偏好（按通用景点提取）"
 
-        prompt_template = EXTRACT_ATTRACTIONS_DISCOVERY_PROMPT.format(max_count=max_count)
+        prompt_template = EXTRACT_ATTRACTIONS_DISCOVERY_PROMPT.format(max_count=max_count) + RESERVATION_PROMPT
         prompt = f"旅行天数: {travel_days}天，最多提取{max_count}个景点。{pref_hint}\n\n以下是搜索结果:\n{raw_results[:15000]}"
         response = await _invoke_llm_with_retry(
             llm,
@@ -119,6 +121,7 @@ async def extract_attractions_expanded_node(state: DiscoveryState) -> Dict[str, 
                     "name": poi["name"],
                     "description": poi.get("description", ""),
                     "category": poi.get("category", "景点"),
+                    **extract_reservation(poi, raw_results),
                 })
 
         print(f"🧠 LLM提取到 {len(valid_pois)} 个景点: {[p['name'] for p in valid_pois]}")
@@ -200,6 +203,7 @@ async def geocode_batch_node(state: DiscoveryState) -> Dict[str, Any]:
             description = poi.get("description", "")
             category = poi.get("category", "景点")
             attraction = {
+                **reservation_fields(poi),
                 "name": name,
                 "description": description,
                 "category": category,

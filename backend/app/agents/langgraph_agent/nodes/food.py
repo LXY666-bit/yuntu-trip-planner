@@ -440,6 +440,9 @@ async def search_dining_pool_node(state: Dict[str, Any]) -> Dict[str, Any]:
                 continue
             _, top_n = _DINING_KEYWORDS[cat]
             ranked = _rank_food_pois(res, None, None, set(), top_n=top_n)
+            preferred = request.food_preference if request.food_preference != "本地特色" else ""
+            cuisines = [preferred] if preferred else (state["user_preferences"].preferred_cuisines if state.get("user_preferences") else [])
+            ranked.sort(key=lambda p: -sum(c in str(p) for c in cuisines if c))
             pool[cat.value] = [
                 _poi_to_dining_candidate(p, cat, source) for p in ranked
             ]

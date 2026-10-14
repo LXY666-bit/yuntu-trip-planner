@@ -1,6 +1,7 @@
 import re
 import json
 from typing import Dict, Any, List, Optional
+from ....services.reservation_extraction import RESERVATION_PROMPT, extract_reservation
 
 from pydantic import BaseModel, Field
 from langchain_core.messages import SystemMessage, HumanMessage
@@ -457,7 +458,7 @@ async def extract_attractions_node(state: TripPlannerState) -> Dict[str, Any]:
         prompt = f"旅行天数: {travel_days}天，最多提取{max_count}个景点（但只提取搜索结果中明确提到的，不要凑数）。{pref_hint}\n\n以下是搜索结果:\n{raw_results[:15000]}"
         response = await _invoke_llm_with_retry(
             llm,
-            [SystemMessage(content=EXTRACT_ATTRACTIONS_PROMPT), HumanMessage(content=prompt)],
+            [SystemMessage(content=EXTRACT_ATTRACTIONS_PROMPT + RESERVATION_PROMPT), HumanMessage(content=prompt)],
             max_retries=2,
             per_attempt_timeout=30.0,
         )
@@ -478,6 +479,7 @@ async def extract_attractions_node(state: TripPlannerState) -> Dict[str, Any]:
                 valid_pois.append({
                     "name": poi["name"],
                     "description": poi.get("description", ""),
+                    **extract_reservation(poi, raw_results),
                 })
 
         if not valid_pois:
@@ -1564,6 +1566,8 @@ async def search_hotels_by_day_node(state: TripPlannerState) -> Dict[str, Any]:
         }
 
     accommodation = request.accommodation or ""
+    if not accommodation and state.get("user_preferences"):
+        accommodation = "、".join(state["user_preferences"].preferred_hotel_types)
     star_ratings = _accommodation_to_star_ratings(accommodation)
 
     while len(clusters) < travel_days:

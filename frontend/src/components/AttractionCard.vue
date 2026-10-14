@@ -12,8 +12,8 @@
       <div class="attraction-badge">
         <span class="badge-number">{{ globalIndex }}</span>
       </div>
-      <div v-if="attraction.ticket_price" class="price-tag">
-        ¥{{ attraction.ticket_price }}
+      <div class="price-tag">
+        {{ attraction.ticket_price ? `约 ¥${attraction.ticket_price}` : attraction.price_status && attraction.price_status !== 'unknown' ? '免费（参考）' : '票价待核实' }}
       </div>
       <div v-if="attraction.category" class="category-tag">
         {{ attraction.category }}
@@ -46,6 +46,7 @@
         </div>
         <p class="attraction-address">{{ attraction.address }}</p>
         <p class="attraction-desc">{{ attraction.description }}</p>
+        <ReservationNotice :attraction="attraction" />
       </template>
     </div>
   </div>
@@ -54,6 +55,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import type { Attraction } from '@/types'
+import ReservationNotice from './ReservationNotice.vue'
 
 const props = defineProps<{
   attraction: Attraction

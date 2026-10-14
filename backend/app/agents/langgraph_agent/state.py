@@ -13,7 +13,7 @@ class DiscoveryState(TypedDict):
     extracted_pois: List[dict]
     discovered_attractions: Annotated[List[dict], operator.add]
     weather_info: Any
-    errors: List[str]
+    errors: Annotated[List[str], operator.add]
     messages: Annotated[List[BaseMessage], operator.add]
     user_id: str
     _geocode_batches: List[List[dict]]
@@ -33,7 +33,7 @@ class TripPlannerState(TypedDict):
     cluster_info: str
     route_info: str
     trip_plan: Optional[TripPlan]
-    errors: List[str]
+    errors: Annotated[List[str], operator.add]
     messages: Annotated[List[BaseMessage], operator.add]
     user_preferences: Optional[UserPreference]
     extracted_preferences: Optional[dict]

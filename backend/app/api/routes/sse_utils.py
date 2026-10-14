@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+from contextlib import suppress
 from typing import AsyncGenerator, Callable, Any
 
 from fastapi.responses import StreamingResponse
@@ -11,12 +12,28 @@ async def heartbeat_wrapper(
     event_generator: Callable[[], AsyncGenerator[str, None]],
     heartbeat_interval: float = 15.0,
 ) -> AsyncGenerator[str, None]:
-    """在 SSE 事件流末尾添加心跳注释，保持连接活跃"""
-    async for chunk in event_generator():
-        yield chunk
-    while True:
-        await asyncio.sleep(heartbeat_interval)
-        yield ": heartbeat\n\n"
+    """等待业务事件期间保活；EOF、取消或断连时关闭生产者。"""
+    source = event_generator()
+    pending = None
+    try:
+        pending = asyncio.create_task(anext(source))
+        while True:
+            done, _ = await asyncio.wait({pending}, timeout=heartbeat_interval)
+            if not done:
+                yield ": heartbeat\n\n"
+                continue
+            try:
+                chunk = pending.result()
+            except StopAsyncIteration:
+                return
+            yield chunk
+            pending = asyncio.create_task(anext(source))
+    finally:
+        if pending is not None:
+            pending.cancel()
+            with suppress(asyncio.CancelledError, StopAsyncIteration):
+                await pending
+        await source.aclose()
 
 
 def make_sse_response(

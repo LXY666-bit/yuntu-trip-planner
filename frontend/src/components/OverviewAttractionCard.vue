@@ -32,7 +32,7 @@ export interface OverviewAttractionItem {
   description?: string
   visit_duration?: number
   ticket_price?: number
-  reservation_required?: boolean
+  reservation_required?: boolean | null
   dayNumber: number
   dayArrayIndex: number
   order: number

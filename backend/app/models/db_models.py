@@ -114,3 +114,13 @@ class TripDraft(Base):
         Index("idx_drafts_user_status", "user_id", "status"),
         Index("idx_drafts_updated", "updated_at"),
     )
+
+
+class PlanProposal(Base):
+    __tablename__ = "plan_proposals"
+    id: Mapped[str] = mapped_column(String(40), primary_key=True)
+    draft_id: Mapped[str] = mapped_column(String(40), index=True)
+    snapshot_json: Mapped[str] = mapped_column(Text)
+    payload_json: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(20), default="pending")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
